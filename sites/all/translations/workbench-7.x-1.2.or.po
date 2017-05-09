@@ -1,0 +1,26 @@
+# Oriya translation of Workbench (7.x-1.2)
+# Copyright (c) 2014 by the Oriya translation team
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Workbench (7.x-1.2)\n"
+"POT-Creation-Date: 2014-02-12 22:15+0000\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Language-Team: Oriya\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+
+msgid "Title"
+msgstr "ଶୀର୍ଷକ"
+msgid "Type"
+msgstr "ପ୍ରକାର"
+msgid "edit"
+msgstr "ସମ୍ପାଦନ କରନ୍ତୁ"
+msgid "Block"
+msgstr "ବ୍ଲକ"
+msgid "Published"
+msgstr "ପ୍ରକାଶିତ"
+msgid "Create content"
+msgstr "ତଥ୍ଯ ସୃଷ୍ଟି"

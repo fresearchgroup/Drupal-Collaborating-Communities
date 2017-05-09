@@ -1,0 +1,26 @@
+# Odia translation of Workbench Access (7.x-1.5)
+# Copyright (c) 2017 by the Odia translation team
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Workbench Access (7.x-1.5)\n"
+"POT-Creation-Date: 2017-01-21 19:44+0000\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Language-Team: Odia\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+
+msgid "Title"
+msgstr "ଶୀର୍ଷକ"
+msgid "Type"
+msgstr "ପ୍ରକାର"
+msgid "Description"
+msgstr "ବର୍ଣ୍ଣନା"
+msgid "Weight"
+msgstr "ଓଜନ"
+msgid "Published"
+msgstr "ପ୍ରକାଶିତ"
+msgid "Anonymous"
+msgstr "ଅଜ୍ଞାତ"

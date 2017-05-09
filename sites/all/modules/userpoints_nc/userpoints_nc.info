@@ -1,0 +1,13 @@
+name = Userpoints Nodes and Comments
+description = Grants userpoints for posting nodes or comments or moderating comments
+package = Userpoints
+dependencies[] = userpoints
+files[]=userpoints_nc.test
+core = 7.x
+
+; Information added by drupal.org packaging script on 2011-11-12
+version = "7.x-1.0"
+core = "7.x"
+project = "userpoints_nc"
+datestamp = "1321089647"
+

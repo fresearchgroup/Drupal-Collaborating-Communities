@@ -1,0 +1,195 @@
+<?php
+
+
+/**
+ * @file
+ * 
+ */
+
+/**
+ * @file
+ * Tests for userpoints_nc_visits  module
+ *
+ */
+
+/**
+ * Generic tests for Userpoints Visits module.
+ */
+class UserpointsNodeVisitsTestCase extends DrupalWebTestCase {
+
+  /**
+   * Implementation of getInfo().
+   */
+  public static function getInfo() {
+    return array
+    (
+      'name' => t('Userpoints Node Visits'),
+      'description' => t('Tests granting points when viewing content.'),
+      'group' => t('Userpoints'),
+    );
+  }
+
+  /**
+   * Implementation of setUp().
+   */
+  function setUp() {
+    parent::setUp('userpoints', 'userpoints_nc_visits');
+  }
+
+  /**
+   * Prepare test environment, run different test methods.
+   */
+  function testVisitingContent() {
+    $this->admin = $this->drupalCreateUser(array('view userpoints', 'view own userpoints', 'bypass node access', 'administer nodes', 'administer userpoints', 'administer content types'));
+    $this->user1 = $this->drupalCreateUser(array('userpoints nc track visits'));
+    $this->user2 = $this->drupalCreateUser(array('userpoints nc track visits'));
+
+
+    $this->drupalLogin($this->admin);
+
+    $this->type = array(
+      'name' => $this->randomName(10),
+      'type' => strtolower($this->randomName(5)),
+      'userpoints_nc_visits_points' => 2,
+    );
+    $this->drupalPost('admin/structure/types/add', $this->type, t('Save content type'));
+    $this->assertText(t('The content type @name has been added.', array('@name' => $this->type['name'])));
+
+    node_types_rebuild();
+    menu_rebuild();
+
+    // Reset permissions so that permissions for this content type are available.
+    $this->checkPermissions(array(), TRUE);
+    user_role_grant_permissions(4, array('create ' . $this->type['type'] . ' content', 'edit any ' . $this->type['type'] . ' content'));
+
+    $this->verifyAllContent();
+    $this->deletePoints();
+    $this->drupalLogin($this->admin);
+    $this->verifyFirstContentOnly();
+  }
+
+  function deletePoints() {
+    db_truncate('userpoints')
+      ->execute();
+    db_truncate('userpoints_txn')
+      ->execute();
+    db_truncate('userpoints_nc_visits')
+      ->execute();
+  }
+
+  /**
+   * Verify that points are granted correctly if set to 'All content'.
+   */
+  function verifyAllContent() {
+
+    $edit = array(
+      'userpoints_nc_visits_limit' => 'all',
+    );
+    $this->drupalPost('admin/config/people/userpoints/settings', $edit, t('Save configuration'));
+
+    $content = array(
+      'title' => $this->randomName(10),
+    );
+    $this->drupalPost('node/add/' . $this->type['type'], $content, t('Save'));
+    $this->assertText(t('@name @title has been created.', array('@name' => $this->type['name'], '@title' => $content['title'])));
+
+    preg_match('|node/(\d+)|', $this->getUrl(), $matches);
+    $nid1 = $matches[1];
+
+    $content = array(
+      'title' => $this->randomName(10),
+    );
+    $this->drupalPost('node/add/' . $this->type['type'], $content, t('Save'));
+    $this->assertText(t('@name @title has been created.', array('@name' => $this->type['name'], '@title' => $content['title'])));
+
+    preg_match('|node/(\d+)|', $this->getUrl(), $matches);
+    $nid2 = $matches[1];
+
+    // Verify point total, admin should not yet have any points.
+    $this->assertEqual(userpoints_get_current_points($this->admin->uid), 0);
+
+    // Log in as user 1, visit content.
+    $this->drupalLogin($this->user1);
+    $this->drupalGet('node/' . $nid1);
+
+    // Verify point total.
+    $this->assertEqual(userpoints_get_current_points($this->admin->uid), 2);
+
+    // Visit again, points should not have been updated.
+    $this->drupalGet('node/' . $nid1);
+    $this->assertEqual(userpoints_get_current_points($this->admin->uid), 2);
+
+    // Visit second node, points should update now.
+    $this->drupalGet('node/' . $nid2);
+    $this->assertEqual(userpoints_get_current_points($this->admin->uid), 4);
+
+    // Log in as second user, visit second node, points should go up.
+    $this->drupalLogin($this->user2);
+    $this->drupalGet('node/' . $nid2);
+    $this->assertEqual(userpoints_get_current_points($this->admin->uid), 6);
+
+    // Visit first node, points should go up.
+    $this->drupalGet('node/' . $nid1);
+    $this->assertEqual(userpoints_get_current_points($this->admin->uid), 8);
+
+    // Visit second node again, points should not go up.
+    $this->drupalGet('node/' . $nid2);
+    $this->assertEqual(userpoints_get_current_points($this->admin->uid), 8);
+  }
+
+  /**
+   * Verify that points are granted correctly if set to 'Only the first visited content'.
+   */
+  function verifyFirstContentOnly() {
+
+    $edit = array(
+      'userpoints_nc_visits_limit' => 'one',
+    );
+    $this->drupalPost('admin/config/people/userpoints/settings', $edit, t('Save configuration'));
+
+    $content = array(
+      'title' => $this->randomName(10),
+    );
+    $this->drupalPost('node/add/' . $this->type['type'], $content, t('Save'));
+    $this->assertText(t('@name @title has been created.', array('@name' => $this->type['name'], '@title' => $content['title'])));
+
+    preg_match('|node/(\d+)|', $this->getUrl(), $matches);
+    $nid1 = $matches[1];
+
+    $content = array(
+      'title' => $this->randomName(10),
+    );
+    $this->drupalPost('node/add/' . $this->type['type'], $content, t('Save'));
+    $this->assertText(t('@name @title has been created.', array('@name' => $this->type['name'], '@title' => $content['title'])));
+
+    preg_match('|node/(\d+)|', $this->getUrl(), $matches);
+    $nid2 = $matches[1];
+
+    // Verify point total, admin should not yet have any points.
+    $this->assertEqual(userpoints_get_current_points($this->admin->uid), 0);
+
+    // Log in as user 1, visit content.
+    $this->drupalLogin($this->user1);
+    $this->drupalGet('node/' . $nid1);
+
+    // Verify point total.
+    $this->assertEqual(userpoints_get_current_points($this->admin->uid), 2);
+
+    // Visit again, points should not have been updated.
+    $this->drupalGet('node/' . $nid1);
+    $this->assertEqual(userpoints_get_current_points($this->admin->uid), 2);
+
+    // Visit second node, points should not update now.
+    $this->drupalGet('node/' . $nid2);
+    $this->assertEqual(userpoints_get_current_points($this->admin->uid), 2);
+
+    // Log in as second user, visit second node, points should go up.
+    $this->drupalLogin($this->user2);
+    $this->drupalGet('node/' . $nid2);
+    $this->assertEqual(userpoints_get_current_points($this->admin->uid), 4);
+
+    // Visit first node, points should not go up.
+    $this->drupalGet('node/' . $nid1);
+    $this->assertEqual(userpoints_get_current_points($this->admin->uid), 4);
+  }
+}

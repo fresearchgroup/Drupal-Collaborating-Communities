@@ -1,0 +1,17 @@
+<?php
+
+/**
+ * @file
+ * Install time hooks for userpoints_nc module.
+ */
+
+/**
+ * Implements hook_uninstall().
+ */
+function userpoints_nc_uninstall() {
+  // Delete all variables with "userpoints_nc_" prefix.
+  // This is to make sure that node type specific settings are deleted too.
+  db_delete('variable')
+    ->condition('name', 'userpoints_nc_%', 'LIKE')
+    ->execute();
+}

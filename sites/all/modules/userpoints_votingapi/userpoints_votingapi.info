@@ -1,0 +1,13 @@
+name = User Points Voting API
+description = Integrates User Points with Voting API-based modules like Fivestar.
+package = Userpoints
+core = 7.x
+dependencies[] = userpoints
+dependencies[] = votingapi
+
+; Information added by Drupal.org packaging script on 2015-06-27
+version = "7.x-1.x-dev"
+core = "7.x"
+project = "userpoints_votingapi"
+datestamp = "1435394282"
+

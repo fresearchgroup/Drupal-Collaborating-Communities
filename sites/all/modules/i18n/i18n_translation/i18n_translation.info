@@ -1,0 +1,14 @@
+name = Translation sets
+description = Simple translation sets API for generic objects
+dependencies[] = i18n
+package = Multilingual - Internationalization
+core = 7.x
+
+files[] = i18n_translation.inc
+
+; Information added by Drupal.org packaging script on 2017-01-31
+version = "7.x-1.15"
+core = "7.x"
+project = "i18n"
+datestamp = "1485834792"
+

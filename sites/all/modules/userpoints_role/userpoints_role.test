@@ -1,0 +1,119 @@
+<?php
+
+/**
+ * API Tests.
+ */
+class UserpointsRoleTestCase extends UserpointsBaseTestCase {
+
+  protected $admin_user;
+
+  /**
+   * Implements getInfo().
+   */
+  function getInfo() {
+    return array(
+        'name' => t('Userpoints Role'),
+        'description' => t('Tests the userpoints role functionality'),
+        'group' => t('Userpoints'),
+    );
+  }
+
+  /**
+   * Install userpoints module and create users.
+   */
+  function setUp() {
+    parent::setUp('userpoints', 'userpoints_role');
+
+    // Create an administrator account.
+    $this->admin_user = $this->drupalCreateUser(array('administer userpoints', 'administer users', 'administer permissions'));
+  }
+
+  function createRole() {
+    $edit = array(
+      'name' => $role_name = $this->randomName(),
+    );
+    $this->drupalPost('admin/people/permissions/roles', $edit, t('Add role'));
+    $this->assertText(t('The role has been added.'));
+    $this->assertText($role_name);
+
+    $roles = user_roles(TRUE);
+
+    return array(array_search($role_name, $roles), $role_name);
+  }
+
+  function testTwoRoles() {
+    $this->drupalLogin($this->admin_user);
+
+    // Create two roles.
+    list($first_role_rid, $first_role_name) = $this->createRole();
+    list($second_role_rid, $second_role_name) = $this->createRole();
+
+    // Check that the settings for the defined roles show up.
+    $this->drupalGet('admin/config/people/userpoints/settings');
+    $this->assertText(t('Points for role @role', array('@role' => $first_role_name)));
+    $this->assertText(t('Points for role @role', array('@role' => $second_role_name)));
+
+    $edit = array(
+      'userpoints_role_' . $first_role_rid => 10,
+      'userpoints_role_' . $second_role_rid => 50,
+    );
+    $this->drupalPost(NULL, $edit, t('Save configuration'));
+
+    $user1 = $this->drupalCreateUser();
+
+    // Grant 5 points, nothing should happen yet.
+    userpoints_userpointsapi(array(
+      'points' => 5,
+      'uid' => $user1->uid,
+    ));
+    $this->assertEqual(5, userpoints_get_current_points($user1->uid));
+
+    $user1 = user_load($user1->uid, TRUE);
+    $this->assertFalse(isset($user1->roles[$first_role_rid]));
+    $this->assertFalse(isset($user1->roles[$second_role_rid]));
+
+    // Grant 7 more points, the user shoud now have the first role.
+    userpoints_userpointsapi(array(
+      'points' => 7,
+      'uid' => $user1->uid,
+    ));
+    $this->assertEqual(12, userpoints_get_current_points($user1->uid));
+
+    $user1 = user_load($user1->uid, TRUE);
+    $this->assertTrue(isset($user1->roles[$first_role_rid]));
+    $this->assertFalse(isset($user1->roles[$second_role_rid]));
+
+    // Remove 3 points, role should be removed again.
+    userpoints_userpointsapi(array(
+      'points' => -3,
+      'uid' => $user1->uid,
+    ));
+    $this->assertEqual(9, userpoints_get_current_points($user1->uid));
+
+    $user1 = user_load($user1->uid, TRUE);
+    $this->assertFalse(isset($user1->roles[$first_role_rid]));
+    $this->assertFalse(isset($user1->roles[$second_role_rid]));
+
+    // Grant 41 points, the user should now have both roles.
+    userpoints_userpointsapi(array(
+      'points' => 41,
+      'uid' => $user1->uid,
+    ));
+    $this->assertEqual(50, userpoints_get_current_points($user1->uid));
+
+    $user1 = user_load($user1->uid, TRUE);
+    $this->assertTrue(isset($user1->roles[$first_role_rid]));
+    $this->assertTrue(isset($user1->roles[$second_role_rid]));
+
+   // Remove 1 point, second role should be removed again.
+    userpoints_userpointsapi(array(
+      'points' => -1,
+      'uid' => $user1->uid,
+    ));
+    $this->assertEqual(49, userpoints_get_current_points($user1->uid));
+
+    $user1 = user_load($user1->uid, TRUE);
+    $this->assertTrue(isset($user1->roles[$first_role_rid]));
+    $this->assertFalse(isset($user1->roles[$second_role_rid]));
+  }
+}

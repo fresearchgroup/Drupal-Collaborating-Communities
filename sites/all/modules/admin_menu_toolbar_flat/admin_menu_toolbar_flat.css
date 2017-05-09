@@ -1,0 +1,8 @@
+#admin-menu {
+  background-image: none;
+  box-shadow: none;
+}
+
+#admin-menu li.admin-menu-account > a {
+  background-image: none;
+}

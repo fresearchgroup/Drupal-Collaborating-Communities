@@ -1,0 +1,22 @@
+# Bengali translation of Voting API (7.x-2.12)
+# Copyright (c) 2014 by the Bengali translation team
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Voting API (7.x-2.12)\n"
+"POT-Creation-Date: 2014-08-16 08:22+0000\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Language-Team: Bengali\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+
+msgid "User"
+msgstr "ব্যবহারকারী"
+msgid "Never"
+msgstr "কখনোই নয়"
+msgid "Appearance"
+msgstr "অবয়ব"
+msgid "IP Address"
+msgstr "আইপি ঠিকানা"

@@ -1,0 +1,24 @@
+# Malayalam translation of AngularJS (7.x-1.4)
+# Copyright (c) 2014 by the Malayalam translation team
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: AngularJS (7.x-1.4)\n"
+"POT-Creation-Date: 2014-12-07 11:33+0000\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Language-Team: Malayalam\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+
+msgid "Title"
+msgstr "തലക്കെട്ട്"
+msgid "Body"
+msgstr "ഘടന"
+msgid "Yes"
+msgstr "അതെ"
+msgid "No"
+msgstr "അല്ല"
+msgid "Time"
+msgstr "സമയം"

@@ -1,0 +1,24 @@
+
+.user-initials {
+    text-align: center;
+    color: #878787;
+    padding: 12px;
+    width: 80px;
+    height: 80px;
+    display: block;
+    background-color: #d6d6d6;
+    font-weight: bold;
+    font-size: 20px;
+    line-height: 35px;
+    font-size: 2rem;
+    line-height: 3.5rem;
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+}
+.user-initials > a {
+    color: #878787;
+}
+.user-initials > a:hover {
+    text-decoration: none;
+}

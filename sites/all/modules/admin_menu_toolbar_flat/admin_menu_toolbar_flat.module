@@ -1,0 +1,9 @@
+<?php
+
+/**
+ * Implements hook_preprocess_HOOK().
+ */
+function admin_menu_toolbar_flat_preprocess_html(&$variables) {
+  // Add the overrides stylesheet.
+  drupal_add_css(drupal_get_path('module', 'admin_menu_toolbar_flat') . '/admin_menu_toolbar_flat.css', array('weight' => 999));
+}

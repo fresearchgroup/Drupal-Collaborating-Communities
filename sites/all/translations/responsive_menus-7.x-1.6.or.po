@@ -1,0 +1,22 @@
+# Odia translation of Responsive Menus (7.x-1.6)
+# Copyright (c) 2017 by the Odia translation team
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Responsive Menus (7.x-1.6)\n"
+"POT-Creation-Date: 2017-01-27 03:44+0000\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Language-Team: Odia\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+
+msgid "Save configuration"
+msgstr "ବିନ୍ୟାସକୁ ସଂରକ୍ଷଣ କରନ୍ତୁ"
+msgid "Expanded"
+msgstr "ସମ୍ପ୍ରସାରିତ"
+msgid "Right to left"
+msgstr "ଡାହାଣରୁ ବାମକୁ"
+msgid "Left to right"
+msgstr "ବାମରୁ ଡ଼ାହାଣକୁ"

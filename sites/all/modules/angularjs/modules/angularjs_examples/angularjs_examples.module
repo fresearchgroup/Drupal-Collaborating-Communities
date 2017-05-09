@@ -1,0 +1,121 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ */
+function angularjs_examples_menu() {
+  $items = array();
+
+  $items['angular/nodes'] = array(
+    'title' => t('Nodes'),
+    'page callback' => 'angularjs_examples_nodes',
+    'access arguments' => array('access content'),
+  );
+
+  $items['angular/nodes/list'] = array(
+    'title' => t('Nodes'),
+    'page callback' => 'angularjs_examples_nodes_list',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+/**
+ * Menu callback for node list template
+ *
+ * @return string
+ */
+function angularjs_examples_nodes_list() {
+  return drupal_get_form('angularjs_examples_nodes_list_form_builder');
+}
+
+function angularjs_examples_nodes_list_form_builder($form, &$form_state) {
+  $options = node_type_get_names();
+
+  $form['node_type'] = array(
+    '#type' => 'ng_select',
+    '#title' => t('Content type'),
+    '#options' => $options,
+    '#description' => t('Filter by content-type.'),
+    '#default_value' => key($options),
+    // Define the ng-model and controller.
+    '#ng_model' => 'nodeType',
+    '#ng_controller' => 'ListCtrl',
+    // Add ng-change.
+    '#attributes' => array(
+      'ng-change' => 'filterNodeType()',
+    ),
+  );
+
+  $form['title'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Title'),
+    '#attributes' => array(
+      'ng-model' => 'query.title',
+      'placeholder' => t('Filter by title'),
+      // HTML5 attribute to Prevent from autocomplete to hide our table.
+      'autocomplete' => 'off',
+    ),
+    '#ng_controller' => 'ListCtrl',
+  );
+
+  $header = array(
+    t('Title'),
+    t('Author'),
+  );
+
+  $row = array(
+    '{{node.title}}',
+    '{{node.author.id}}',
+  );
+
+  $form['table'] = array(
+    '#theme' => 'ng_table',
+    '#header' => $header,
+    '#row' => $row,
+    '#empty' => t('No content found.'),
+    // Optionally filter query.
+    '#ng_repeat' => 'node in nodes.list | filter: query',
+    // Used for the empty text.
+    '#ng_model' => 'nodes.list',
+    // Empty text logic.
+    '#ng_empty' => '(nodes.list | filter: query).length == 0',
+  );
+
+  return $form;
+}
+
+/**
+ * Page callback for node example.
+ */
+function angularjs_examples_nodes() {
+  angularjs_init_application('nodelist');
+  drupal_add_js(drupal_get_path('module', 'angularjs_examples') . '/js/nodelist.js');
+
+  return theme('angularjs_examples_nodes');
+}
+
+/**
+ * Implements hook_theme
+ *
+ * @return array
+ */
+function angularjs_examples_theme() {
+  $themes = array();
+
+  $themes['angularjs_examples_nodes'] = array(
+    'template' => 'theme/example-nodes',
+    'parameters' => array(),
+  );
+
+  $themes['angularjs_examples_nodes_list'] = array(
+    'template' => 'theme/example-nodes-list',
+    'parameters' => array(
+      'query' => array(),
+    ),
+  );
+
+  return $themes;
+}

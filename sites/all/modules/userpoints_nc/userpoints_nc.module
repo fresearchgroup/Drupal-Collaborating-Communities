@@ -1,0 +1,680 @@
+<?php
+// Copyright 2005 Khalid Baheyeldin http://2bits.com
+
+function userpoints_nc_form_node_type_form_alter(&$form, &$form_state) {
+  $form['userpoints_nc'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('!Points for content', userpoints_translation()),
+    '#collapsible' => TRUE,
+    '#collapsed' => FALSE,
+    '#access' => user_access('administer userpoints'),
+    '#weight' => 15,
+    '#group' => 'additional_settings',
+    '#attached' => array(
+      'js' => array(
+        'userpoints_nc' => drupal_get_path('module', 'userpoints_nc') . '/userpoints_nc.js',
+      ),
+    ),
+    '#attributes' => array('class' => array('userpoints-nc-nodetype-form')),
+  );
+
+  $type = $form['#node_type']->type;
+  $form['userpoints_nc']['userpoints_nc_enabled'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Enabled.'),
+    '#default_value' => userpoints_nc_get_setting('enabled', $type, TRUE),
+    '#description' => t('If checked, !points can be awarded for creating content of this type.', userpoints_translation()),
+  );
+
+  $form['userpoints_nc']['userpoints_nc_ownership_deduct'] = array(
+    '#type'          => 'checkbox',
+    '#title'         => t('Deduct !points when the content author changes.', userpoints_translation()),
+    '#default_value' => userpoints_nc_get_setting('ownership_deduct', $type, TRUE),
+    '#description'   => t('If checked, the old author will lose any !points that he previously gained.', userpoints_translation()),
+    '#states' => array(
+      'visible' => array(
+        ':input[name="userpoints_nc_enabled"]' => array('checked' => TRUE),
+      ),
+    ),
+  );
+
+  $form['userpoints_nc']['userpoints_nc_delete_deduct'] = array(
+    '#type'          => 'checkbox',
+    '#title'         => t('Deduct !points when content is deleted or unpublished.', userpoints_translation()),
+    '#default_value' => userpoints_nc_get_setting('delete_deduct', $type, TRUE),
+    '#description'   => t('If checked, the author will lose any !points that he previously gained.', userpoints_translation()),
+    '#states' => array(
+      'visible' => array(
+        ':input[name="userpoints_nc_enabled"]' => array('checked' => TRUE),
+      ),
+    ),
+  );
+
+  $form['userpoints_nc']['userpoints_nc_points'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('!Points for new content', array_merge(userpoints_translation())),
+    '#default_value' => userpoints_nc_get_setting('points', $type),
+    '#size'          => 5,
+    '#maxlength'     => 5,
+    '#description' => t('Set the number of !points to be awarded when a user adds content of this type.', userpoints_translation()),
+    '#states' => array(
+      'visible' => array(
+        ':input[name="userpoints_nc_enabled"]' => array('checked' => TRUE),
+      ),
+    ),
+  );
+
+  $form['userpoints_nc']['userpoints_nc_category'] = array(
+    '#type'          => 'select',
+    '#title'         => t('!Points category for new content', array_merge(userpoints_translation())),
+    '#description'   => t('Choose the category of !points to be awarded when a user adds content of this type.', userpoints_translation()),
+    '#options'       => userpoints_get_categories(),
+    '#default_value' => userpoints_nc_get_setting('category', $type),
+    '#states' => array(
+      'visible' => array(
+        ':input[name="userpoints_nc_enabled"]' => array('checked' => TRUE),
+      ),
+    ),
+  );
+
+  $form['userpoints_nc_comment'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('!Points for comments', userpoints_translation()),
+    '#collapsible' => TRUE,
+    '#collapsed' => FALSE,
+    '#access' => user_access('administer userpoints'),
+    '#weight' => 20,
+    '#group' => 'additional_settings',
+    '#attributes' => array('class' => array('userpoints-nc-comment-nodetype-form')),
+  );
+
+  $form['userpoints_nc_comment']['userpoints_nc_comment_enabled'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Enabled'),
+    '#default_value' => userpoints_nc_get_setting('comment_enabled', $type, TRUE),
+    '#description' => t('If checked, !points can be awarded for commenting upon content of this type.', userpoints_translation()),
+  );
+
+  $form['userpoints_nc_comment']['userpoints_nc_comment_ownership_deduct'] = array(
+    '#type'          => 'checkbox',
+    '#title'         => t('Deduct !points when the comment author changes.', userpoints_translation()),
+    '#default_value' => userpoints_nc_get_setting('comment_ownership_deduct', $type, TRUE),
+    '#description'   => t('If checked, the old author will lose any !points that he previously gained.', userpoints_translation()),
+    '#states' => array(
+      'visible' => array(
+        ':input[name="userpoints_nc_comment_enabled"]' => array('checked' => TRUE),
+      ),
+    ),
+  );
+
+  $form['userpoints_nc_comment']['userpoints_nc_comment_delete_deduct'] = array(
+    '#type'          => 'checkbox',
+    '#title'         => t('Deduct !points when comments are deleted or unpublished.', userpoints_translation()),
+    '#default_value' => userpoints_nc_get_setting('comment_delete_deduct', $type, TRUE),
+    '#description'   => t('If checked, the author will lose any !points that he previously gained.', userpoints_translation()),
+    '#states' => array(
+      'visible' => array(
+        ':input[name="userpoints_nc_comment_enabled"]' => array('checked' => TRUE),
+      ),
+    ),
+  );
+
+  $form['userpoints_nc_comment']['userpoints_nc_comment_points'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('!Points for new comments', userpoints_translation()),
+    '#description'   => t('Set the number of !points to be awarded when a user adds a comment.', userpoints_translation()),
+    '#default_value' => userpoints_nc_get_setting('comment_points', $type),
+    '#size'          => 5,
+    '#maxlength'     => 5,
+    '#states' => array(
+      'visible' => array(
+        ':input[name="userpoints_nc_comment_enabled"]' => array('checked' => TRUE),
+      ),
+    ),
+  );
+
+  $form['userpoints_nc_comment']['userpoints_nc_comment_category'] = array(
+    '#type'          => 'select',
+    '#title'         => t('!Points category for new comments', array_merge(userpoints_translation())),
+    '#description'   => t('Choose the category of !points to be awarded when a user adds a comment.', userpoints_translation()),
+    '#options'       => userpoints_get_categories(),
+    '#default_value' => userpoints_nc_get_setting('comment_category', $type),
+    '#states' => array(
+      'visible' => array(
+        ':input[name="userpoints_nc_comment_enabled"]' => array('checked' => TRUE),
+      ),
+    ),
+  );
+}
+
+/**
+ * Implements hook_userpoints().
+ */
+function userpoints_nc_userpoints($op, $params = array()) {
+  switch ($op) {
+    case 'setting':
+
+      drupal_add_js(drupal_get_path('module', 'userpoints_nc') . '/userpoints_nc.js');
+
+      $form['userpoints_nc'] = array(
+        '#type'        => 'fieldset',
+        '#collapsible' => TRUE,
+        '#collapsed'   => TRUE,
+        '#title'       => t('Content'),
+        '#group'       => 'settings_additional',
+        '#weight'      => 15,
+      );
+
+      $form['userpoints_nc']['userpoints_nc_enabled'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Enabled by default.'),
+        '#default_value' => userpoints_nc_get_setting('enabled', NULL, TRUE),
+        '#description' => t('If checked, all content types award !points by default. This can be overridden for each content type on the content type edit page.', userpoints_translation()),
+      );
+
+      $form['userpoints_nc']['userpoints_nc_published_only'] = array(
+        '#type'          => 'checkbox',
+        '#title'         => t('Only award !points for published content.', userpoints_translation()),
+        '#default_value' => variable_get('userpoints_nc_published_only', TRUE),
+        '#description'   => t('If checked, users only receive !points when content is published.', userpoints_translation())
+      );
+
+      $form['userpoints_nc']['userpoints_nc_ownership_deduct'] = array(
+        '#type'          => 'checkbox',
+        '#title'         => t('Deduct !points when the content author changes.', userpoints_translation()),
+        '#default_value' => variable_get('userpoints_nc_ownership_deduct', TRUE),
+        '#description'   => t('If checked, the old author will lose any !points that he previously gained. This setting can be overridden for each content type.', userpoints_translation())
+      );
+
+      $form['userpoints_nc']['userpoints_nc_delete_deduct'] = array(
+        '#type'          => 'checkbox',
+        '#title'         => t('Deduct !points when content is deleted or unpublished.', userpoints_translation()),
+        '#default_value' => variable_get('userpoints_nc_delete_deduct', TRUE),
+        '#description'   => t('If checked, the author will lose any points that he previously gained. This setting can be overridden for each content type.', userpoints_translation())
+      );
+
+      $form['userpoints_nc']['userpoints_nc_points'] = array(
+        '#type'          => 'textfield',
+        '#title'         => t('Default !points for new content', userpoints_translation()),
+        '#description'   => t('Set the default number of !points to be awarded when a user adds new content. This can be overridden for each content type.', userpoints_translation()),
+        '#default_value' => userpoints_nc_get_setting('points'),
+        '#size'          => 5,
+        '#maxlength'     => 5,
+      );
+
+      $form['userpoints_nc']['userpoints_nc_category'] = array(
+        '#type'          => 'select',
+        '#title'         => t('Default !points category for new content', userpoints_translation()),
+        '#description'   => t('Choose the category of !points to be used by default when a user adds new content. This can be overridden for each content type.', userpoints_translation()),
+        '#options'       => userpoints_get_categories(),
+        '#default_value' => userpoints_nc_get_setting('category'),
+      );
+
+      $form['userpoints_nc_comment'] = array(
+        '#type'        => 'fieldset',
+        '#collapsible' => TRUE,
+        '#collapsed'   => TRUE,
+        '#title'       => t('Comments'),
+        '#group'       => 'settings_additional',
+        '#weight'      => 20,
+      );
+
+      $form['userpoints_nc_comment']['userpoints_nc_comment_enabled'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Enabled by default.'),
+        '#default_value' => userpoints_nc_get_setting('comment_enabled', NULL, TRUE),
+        '#description' => t('If checked, all content types award !points by default. This can be overridden for each content type on the content type edit page.', userpoints_translation()),
+      );
+
+      $form['userpoints_nc_comment']['userpoints_nc_comment_published_only'] = array(
+        '#type'          => 'checkbox',
+        '#title'         => t('Only award !points for published comments.', userpoints_translation()),
+        '#default_value' => variable_get('userpoints_nc_comment_published_only', TRUE),
+        '#description'   => t('If checked, users only receive !points when comments are published.', userpoints_translation())
+      );
+
+      $form['userpoints_nc_comment']['userpoints_nc_comment_ownership_deduct'] = array(
+        '#type'          => 'checkbox',
+        '#title'         => t('Deduct !points when the comment author changes.', userpoints_translation()),
+        '#default_value' => variable_get('userpoints_nc_comment_ownership_deduct', TRUE),
+        '#description'   => t('If checked, the old author will lose any !points that he previously gained. This setting can be overridden for each content type.', userpoints_translation())
+      );
+
+      $form['userpoints_nc_comment']['userpoints_nc_comment_delete_deduct'] = array(
+        '#type'          => 'checkbox',
+        '#title'         => t('Deduct !points when comments are deleted or unpublished.', userpoints_translation()),
+        '#default_value' => variable_get('userpoints_nc_comment_delete_deduct', TRUE),
+        '#description'   => t('If checked, the author will lose any points that he previously gained. This setting can be overridden for each content type.', userpoints_translation())
+      );
+
+      $form['userpoints_nc_comment']['userpoints_nc_comment_points'] = array(
+        '#type'          => 'textfield',
+        '#title'         => t('Default !points for new comments', userpoints_translation()),
+        '#description'   => t('Set the default number of !points to be awarded when a user adds a comment. This can be overridden for each content type.', userpoints_translation()),
+        '#default_value' => userpoints_nc_get_setting('comment_points'),
+        '#size'          => 5,
+        '#maxlength'     => 5,
+      );
+
+      $form['userpoints_nc_comment']['userpoints_nc_comment_category'] = array(
+        '#type'          => 'select',
+        '#title'         => t('Default !points category for new comments', userpoints_translation()),
+        '#description'   => t('Choose the category of !points to be used by default when a user adds a comment. This can be overridden for each content type.', userpoints_translation()),
+        '#options'       => userpoints_get_categories(),
+        '#default_value' => userpoints_nc_get_setting('comment_category'),
+      );
+
+      return $form;
+      break;
+  }
+}
+
+/**
+ * Helper function to return a setting.
+ *
+ * If a node type is passed in, the specific setting will be used with a
+ * fallback to the global settings.
+ *
+ * @param $name
+ *   Name of the setting: points, category, comment_points, comment_category.
+ * @param $type
+ *   Node type, if passed in, the function looks for a node type specific setting.
+ *
+ * @return
+ *   The configured setting value.
+ */
+function userpoints_nc_get_setting($name, $type = NULL, $default = 0) {
+  if (!empty($type)) {
+    return variable_get('userpoints_nc_' . $name  . '_' . $type, variable_get('userpoints_nc_' . $name, $default));
+  }
+  else {
+    return variable_get('userpoints_nc_' . $name, $default);
+  }
+}
+
+/**
+ * Implements hook_node_delete().
+ */
+function userpoints_nc_node_delete($node) {
+  // Check if enabled for this node type.
+  if (!userpoints_nc_get_setting('enabled', $node->type, TRUE)) {
+    return;
+  }
+
+  $tid = userpoints_nc_get_setting('category', $node->type);
+  $points = userpoints_nc_get_setting('points', $node->type);
+  $published_or_all = $node->status == NODE_PUBLISHED || !variable_get('userpoints_nc_published_only', TRUE);
+
+  if (userpoints_nc_get_setting('delete_deduct', $node->type, TRUE) && $published_or_all && $points != 0) {
+    $params = array(
+      'points' => -$points,
+      'tid' => $tid,
+      'uid' => $node->uid,
+      'operation' => 'userpoints_nc_node_delete',
+      'entity_id' => $node->nid,
+      'entity_type' => 'node',
+    );
+    userpoints_userpointsapi($params);
+  }
+}
+
+/**
+ * Implements hook_node_insert().
+ */
+function userpoints_nc_node_insert($node) {
+  // Check if enabled for this node type.
+  if (!userpoints_nc_get_setting('enabled', $node->type, TRUE)) {
+    return;
+  }
+
+  $tid = userpoints_nc_get_setting('category', $node->type);
+  $points = userpoints_nc_get_setting('points', $node->type);
+  $published_or_all = $node->status == NODE_PUBLISHED || !variable_get('userpoints_nc_published_only', TRUE);
+
+  // Only add points if node is published or published only setting is FALSE.
+  if ($points != 0 && $published_or_all) {
+    $params = array(
+      'points' => $points,
+      'tid' => $tid,
+      'uid' => $node->uid,
+      'operation' => 'userpoints_nc_node_insert',
+      'entity_id' => $node->nid,
+      'entity_type' => 'node'
+    );
+    userpoints_userpointsapi($params);
+  }
+}
+
+/**
+ * Implements hook_node_update().
+ */
+function userpoints_nc_node_presave($node) {
+  // Check if enabled for this node type.
+  if (!userpoints_nc_get_setting('enabled', $node->type, TRUE)) {
+    return;
+  }
+
+  $tid = userpoints_nc_get_setting('category', $node->type);
+  $points = userpoints_nc_get_setting('points', $node->type);
+  // Check whether the node is published or unpublished nodes should be counted
+  // too.
+  $published_or_all = $node->status == NODE_PUBLISHED || !variable_get('userpoints_nc_published_only', TRUE);
+  // Check if the node is published and published only setting is enabled.
+  $published_only = $node->status == NODE_PUBLISHED && variable_get('userpoints_nc_published_only', TRUE);
+
+  // Check if it is a new node.
+  if (empty($node->nid)) {
+    return;
+  }
+  // Load the current status of the node from the database.
+  $old_status = db_query('SELECT status FROM {node} WHERE nid = :nid', array(':nid' => $node->nid))->fetchField();
+  // Find the last points granted on this node inserts and ownership gains.
+  $active_operations = array('userpoints_nc_node_insert', 'userpoints_nc_node_publish', 'userpoints_nc_node_unpublish', 'userpoints_nc_node_gain');
+  $sql = "SELECT points, uid FROM {userpoints_txn} WHERE entity_id = :id AND entity_type = :type AND operation IN (:operation) ORDER BY time_stamp DESC";
+  $last_owner = db_query_range($sql, 0, 1, array(':id' => $node->nid, ':type' => 'node', ':operation' => $active_operations))->fetchObject();
+  // If ownership has changed, add/subtract points.
+  if ($last_owner && $node->uid != $last_owner->uid) {
+    // Add to the new node owner.
+    if ($published_or_all) {
+      $params = array(
+        'points' => $last_owner->points,
+        'tid' => $tid,
+        'uid' => $node->uid,
+        'operation' => 'userpoints_nc_node_gain',
+        'entity_id' => $node->nid,
+        'entity_type' => 'node'
+      );
+      userpoints_userpointsapi($params);
+    }
+
+    // Only subtract points if the node was published before.
+    if (userpoints_nc_get_setting('ownership_deduct', $node->type, TRUE) && ($old_status == NODE_PUBLISHED || !variable_get('userpoints_nc_published_only', TRUE))) {
+      $params = array(
+        'points' => -$last_owner->points,
+        'tid' => $tid,
+        'uid' => $last_owner->uid,
+        'operation' => 'userpoints_nc_node_loss',
+        'entity_id' => $node->nid,
+        'entity_type' => 'node'
+      );
+      userpoints_userpointsapi($params);
+    }
+  }
+  // Check if node has been published.
+  else if ($published_only && $old_status == NODE_NOT_PUBLISHED) {
+     $params = array(
+      'points' => $points,
+      'tid' => $tid,
+      'uid' => $node->uid,
+      'operation' => 'userpoints_nc_node_publish',
+      'entity_id' => $node->nid,
+      'entity_type' => 'node'
+    );
+    userpoints_userpointsapi($params);
+  }
+  // Check if node was unpublished and points need to be subtracted.
+  else if (userpoints_nc_get_setting('delete_deduct', $node->type, TRUE) && $points != 0 && $old_status == NODE_PUBLISHED && $node->status == NODE_NOT_PUBLISHED && variable_get('userpoints_nc_published_only', TRUE)) {
+     $params = array(
+      'points' => -$points,
+      'tid' => $tid,
+      'uid' => $node->uid,
+      'operation' => 'userpoints_nc_node_unpublish',
+      'entity_id' => $node->nid,
+      'entity_type' => 'node'
+    );
+    userpoints_userpointsapi($params);
+  }
+}
+
+/**
+ * Implements hook_comment_insert().
+ */
+function userpoints_nc_comment_insert($comment) {
+  $node = node_load($comment->nid);
+  // Check if enabled for this node type.
+  if (!userpoints_nc_get_setting('comment_enabled', $node->type, TRUE)) {
+    return;
+  }
+
+  $tid = userpoints_nc_get_setting('comment_category', $node->type);
+  $points = userpoints_nc_get_setting('comment_points', $node->type);
+  $published_or_all = $comment->status == COMMENT_PUBLISHED || !variable_get('userpoints_nc_comment_published_only', TRUE);
+
+  if ($points != 0 && $published_or_all) {
+    $params = array(
+      'points' => $points,
+      'tid' => $tid,
+      'uid' => $comment->uid,
+      'operation' => 'userpoints_nc_comment_insert',
+      'entity_id' => $comment->cid,
+      'entity_type' => 'comment'
+    );
+    userpoints_userpointsapi($params);
+  }
+}
+
+/**
+ * Implements hook_comment_insert().
+ */
+function userpoints_nc_comment_presave($comment) {
+
+  $node = node_load($comment->nid);
+  // Check if enabled for this node type.
+  if (!userpoints_nc_get_setting('comment_enabled', $node->type, TRUE)) {
+    return;
+  }
+
+  $tid = userpoints_nc_get_setting('comment_category', $node->type);
+  $points = userpoints_nc_get_setting('comment_points', $node->type);
+  $published_or_all = $comment->status == COMMENT_PUBLISHED || !variable_get('userpoints_nc_comment_published_only', TRUE);
+  $published_only = $comment->status == COMMENT_PUBLISHED && variable_get('userpoints_nc_comment_published_only', TRUE);
+
+  if (!$comment->cid) {
+    return;
+  }
+
+    // Load the current status of the node from the database.
+  $old_status = db_query('SELECT status FROM {comment} WHERE cid = :cid', array(':cid' => $comment->cid))->fetchField();
+
+  // Find the last points granted on this node inserts and ownership gains.
+  $active_operations = array('userpoints_nc_comment_insert', 'userpoints_nc_comment_publish', 'userpoints_nc_comment_unpublish', 'userpoints_nc_comment_gain');
+  $sql = "SELECT points, uid FROM {userpoints_txn} WHERE entity_id = :id AND entity_type = :type AND operation IN (:operation) ORDER BY time_stamp DESC";
+  $last_owner = db_query_range($sql, 0, 1, array(':id' => $comment->cid, ':type' => 'comment', ':operation' => $active_operations))->fetchObject();
+
+  // If ownership has changed, add/subtract points.
+
+  if ($last_owner && $comment->uid != $last_owner->uid) {
+    // Add to the new node owner.
+    if ($points != 0 && $published_or_all) {
+      $params = array(
+        'points' => $last_owner->points,
+        'tid' => $tid,
+        'uid' => $comment->uid,
+        'operation' => 'userpoints_nc_comment_gain',
+        'entity_id' => $comment->cid,
+        'entity_type' => 'comment',
+      );
+      userpoints_userpointsapi($params);
+    }
+
+    // Only subtract points if he was published before.
+    if (userpoints_nc_get_setting('comment_ownership_deduct', $node->type, TRUE) && ($old_status == NODE_PUBLISHED || $published_or_all)) {
+      $params = array(
+        'points' => -$last_owner->points,
+        'tid' => $tid,
+        'uid' => $last_owner->uid,
+        'operation' => 'userpoints_nc_comment_loss',
+        'entity_id' => $comment->cid,
+        'entity_type' => 'comment',
+      );
+      userpoints_userpointsapi($params);
+    }
+  }
+  // Check if node has been published.
+  else if ($published_only && $old_status == NODE_NOT_PUBLISHED) {
+     $params = array(
+      'points' => $points,
+      'tid' => $tid,
+      'uid' => $comment->uid,
+      'operation' => 'userpoints_nc_comment_publish',
+        'entity_id' => $comment->cid,
+        'entity_type' => 'comment',
+    );
+    userpoints_userpointsapi($params);
+  }
+  // Check if node was unpublished and points need to be subtracted.
+  else if (userpoints_nc_get_setting('comment_delete_deduct', $node->type, TRUE) && $points != 0 && $old_status == COMMENT_PUBLISHED && $comment->status == COMMENT_NOT_PUBLISHED && variable_get('userpoints_nc_comment_published_only', TRUE)) {
+     $params = array(
+      'points' => -$points,
+      'tid' => $tid,
+      'uid' => $comment->uid,
+      'operation' => 'userpoints_nc_comment_unpublish',
+        'entity_id' => $comment->cid,
+        'entity_type' => 'comment',
+    );
+    userpoints_userpointsapi($params);
+  }
+}
+
+/**
+ * Implements hook_comment_delete().
+ */
+function userpoints_nc_comment_delete($comment) {
+  $node = node_load($comment->nid);
+  // Check if enabled for this node type.
+  if (!userpoints_nc_get_setting('comment_enabled', $node->type, TRUE)) {
+    return;
+  }
+
+  $tid = userpoints_nc_get_setting('comment_category', $node->type);
+  $points = userpoints_nc_get_setting('comment_points', $node->type);
+  $published_or_all = $comment->status == COMMENT_PUBLISHED || !variable_get('userpoints_nc_comment_published_only', TRUE);
+
+  if (userpoints_nc_get_setting('comment_delete_deduct', $node->type, TRUE) && $points != 0 && $published_or_all) {
+    $params = array(
+      'points' => -$points,
+      'tid' => $tid,
+      'uid' => $comment->uid,
+      'operation' => 'userpoints_nc_comment_delete',
+      'entity_id' => $comment->cid,
+      'entity_type' => 'comment'
+    );
+    userpoints_userpointsapi($params);
+  }
+}
+
+/**
+ * Implements hook_userpoints_info().
+ */
+function userpoints_nc_userpoints_info() {
+  return array(
+    'userpoints_nc_node_insert' => array(
+      'description callback' => 'userpoints_nc_description_callback',
+      'description' => t('Content was created.'),
+    ),
+    'userpoints_nc_node_publish' => array(
+      'description callback' => 'userpoints_nc_description_callback',
+    ),
+    'userpoints_nc_node_unpublish' => array(
+      'description callback' => 'userpoints_nc_description_callback',
+    ),
+    'userpoints_nc_node_delete' => array(
+      'description callback' => 'userpoints_nc_description_callback',
+    ),
+    'userpoints_nc_node_gain' => array(
+      'description callback' => 'userpoints_nc_description_callback',
+    ),
+    'userpoints_nc_node_loss' => array(
+      'description callback' => 'userpoints_nc_description_callback',
+    ),
+    'userpoints_nc_comment_insert' => array(
+      'description callback' => 'userpoints_nc_description_callback',
+    ),
+    'userpoints_nc_comment_publish' => array(
+      'description callback' => 'userpoints_nc_description_callback',
+    ),
+    'userpoints_nc_comment_unpublish' => array(
+      'description callback' => 'userpoints_nc_description_callback',
+    ),
+    'userpoints_nc_comment_delete' => array(
+      'description callback' => 'userpoints_nc_description_callback',
+    ),
+    'userpoints_nc_comment_gain' => array(
+      'description callback' => 'userpoints_nc_description_callback',
+    ),
+    'userpoints_nc_comment_loss' => array(
+      'description callback' => 'userpoints_nc_description_callback',
+    ),
+  );
+}
+
+/**
+ * Description callback for userpoints operation description/reason.
+ */
+function userpoints_nc_description_callback($operation, $entity) {
+
+  $arguments = array();
+  // Try to load content type name.
+  if ($operation->entity_type == 'comment' && $entity) {
+    $node = node_load($entity->nid);
+    $arguments['%title'] = $node->title;
+  }
+  elseif ($operation->entity_type == 'node' && $entity) {
+    $arguments['%title'] = $entity->title;
+  }
+
+  // Fallback to string content if the above failed for some reason.
+  if (empty($arguments['%title'])) {
+    $arguments['%title'] = t('content');
+  }
+
+  switch ($operation->operation) {
+    case 'userpoints_nc_node_insert':
+      return t('Added %title.', $arguments);
+      break;
+
+    case 'userpoints_nc_node_publish':
+      return t('Content was published: %title.', $arguments);
+      break;
+
+    case 'userpoints_nc_node_unpublish':
+      return t('Content was unpublished: %title.', $arguments);
+      break;
+
+    case 'userpoints_nc_node_delete':
+      return t('Content was deleted.', $arguments);
+      break;
+
+    case 'userpoints_nc_node_gain':
+      return t('Credited as author of %title.', $arguments);
+      break;
+
+    case 'userpoints_nc_node_loss':
+      return t('Removed as author of %title.', $arguments);
+      break;
+
+    case 'userpoints_nc_comment_insert':
+      return t('Commented on %title.', $arguments);
+      break;
+
+    case 'userpoints_nc_comment_publish':
+      return t('Comment was published on %title.', $arguments);
+      break;
+
+    case 'userpoints_nc_comment_unpublish':
+      return t('Comment was unpublished on %title.', $arguments);
+      break;
+
+    case 'userpoints_nc_comment_delete':
+      return t('Comment was deleted on %title.', $arguments);
+      break;
+
+    case 'userpoints_nc_comment_gain':
+      return t('Credited as commenter on %title.', $arguments);
+      break;
+
+    case 'userpoints_nc_comment_loss':
+      return t('Removed as commenter on %title.', $arguments);
+      break;
+  }
+}

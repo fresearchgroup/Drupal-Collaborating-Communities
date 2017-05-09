@@ -1,0 +1,179 @@
+<?php
+/**
+ * @file
+ * Tests for userpoints_nc.module
+ *
+ */
+
+class UserpointsNodeCommentTestCase extends DrupalWebTestCase {
+
+  protected $admin;
+  protected $user;
+  protected $type;
+
+  /**
+   * Implementation of getInfo().
+   */
+  public static function getInfo() {
+    return array
+    (
+      'name' => t('Userpoints Nodes and Comments'),
+      'description' => t('Tests granting points when creating and editing content'),
+      'group' => t('Userpoints'),
+      'dependencies' => array('userpoints'),
+    );
+  }
+
+  /**
+   * Implementation of setUp().
+   */
+  function setUp() {
+    parent::setUp('userpoints', 'userpoints_nc');
+  }
+
+  function testCreateContent() {
+    $this->admin = $this->drupalCreateUser(array('view userpoints', 'view own userpoints', 'bypass node access', 'administer nodes', 'administer userpoints', 'administer content types'));
+    $this->user = $this->drupalCreateUser(array('view own userpoints'));
+
+    $this->drupalLogin($this->admin);
+
+    $this->type = array(
+      'name' => $this->randomName(10),
+      'type' => strtolower($this->randomName(5)),
+      'userpoints_nc_points' => 5,
+    );
+    $this->drupalPost('admin/structure/types/add', $this->type, t('Save content type'));
+    $this->assertText(t('The content type @name has been added.', array('@name' => $this->type['name'])));
+
+    node_types_rebuild();
+    menu_rebuild();
+
+    // Reset permissions so that permissions for this content type are available.
+    $this->checkPermissions(array(), TRUE);
+    user_role_grant_permissions(4, array('create ' . $this->type['type'] . ' content', 'edit any ' . $this->type['type'] . ' content'));
+
+    $this->verifyPublishing();
+    $this->deletePoints();
+    $this->verifyPublishingAuthorChange();
+    $this->deletePoints();
+    $this->verifyUnpublished();
+  }
+
+  function deletePoints() {
+    db_delete('userpoints')
+      ->execute();
+    db_delete('userpoints_txn')
+      ->execute();
+  }
+
+  /**
+   * Create a node that is initially unpublished.
+   */
+  function verifyUnpublished() {
+
+    $content = array(
+      'title' => $this->randomName(10),
+      'status' => FALSE,
+    );
+    $this->drupalPost('node/add/' . $this->type['type'], $content, t('Save'));
+    $this->assertText(t('@name @title has been created.', array('@name' => $this->type['name'], '@title' => $content['title'])));
+
+    // Verify point total.
+    $this->assertEqual(userpoints_get_current_points($this->admin->uid), 0);
+
+    $this->clickLink(t('Edit'));
+
+    $edit_content = array(
+      'status' => TRUE,
+    );
+    $this->drupalPost(NULL, $edit_content, t('Save'));
+    $this->assertText(t('@name @title has been updated.', array('@name' => $this->type['name'], '@title' => $content['title'])));
+    $this->assertText(t('You just earned 5 points and now have 5 points in the General category.'));
+
+    // Verify point total.
+    $this->assertEqual(userpoints_get_current_points($this->admin->uid), 5);
+  }
+
+  /**
+   * Create a published node, unpublish and publish it again.
+   */
+  function verifyPublishing() {
+
+    $content = array(
+      'title' => $this->randomName(10),
+    );
+    $this->drupalPost('node/add/' . $this->type['type'], $content, t('Save'));
+    $this->assertText(t('@name @title has been created.', array('@name' => $this->type['name'], '@title' => $content['title'])));
+    $this->assertText(t('You just earned 5 points and now have 5 points in the General category.'));
+
+    // Verify point total.
+    $this->assertEqual(userpoints_get_current_points($this->admin->uid), 5);
+
+    $this->clickLink(t('Edit'));
+
+    $edit_content = array(
+      'status' => FALSE,
+    );
+    $this->drupalPost(NULL, $edit_content, t('Save'));
+    $this->assertText(t('@name @title has been updated.', array('@name' => $this->type['name'], '@title' => $content['title'])));
+    $this->assertText(t('You just had 5 points deducted and now have 0 points in the General category.'));
+
+    // Verify point total.
+    $this->assertEqual(userpoints_get_current_points($this->admin->uid), 0);
+
+
+    $this->clickLink(t('Edit'));
+    $edit_content = array(
+      'status' => TRUE,
+    );
+    $this->drupalPost(NULL, $edit_content, t('Save'));
+    $this->assertText(t('@name @title has been updated.', array('@name' => $this->type['name'], '@title' => $content['title'])));
+    $this->assertText(t('You just earned 5 points and now have 5 points in the General category.'));
+
+    // Verify point total.
+    $this->assertEqual(userpoints_get_current_points($this->admin->uid), 5);
+  }
+
+  /**
+   * Create a published node, unpublish and change author and publish again.
+   */
+  function verifyPublishingAuthorChange() {
+    $content = array(
+      'title' => $this->randomName(10),
+    );
+    $this->drupalPost('node/add/' . $this->type['type'], $content, t('Save'));
+    $this->assertText(t('@name @title has been created.', array('@name' => $this->type['name'], '@title' => $content['title'])));
+    $this->assertText(t('You just earned 5 points and now have 5 points in the General category.'));
+
+    // Verify point total.
+    $this->assertEqual(userpoints_get_current_points($this->admin->uid), 5);
+    $this->assertEqual(userpoints_get_current_points($this->user->uid), 0);
+
+    $this->clickLink(t('Edit'));
+
+    $edit_content = array(
+      'status' => FALSE,
+      'name' => $this->user->name,
+    );
+    $this->drupalPost(NULL, $edit_content, t('Save'));
+    $this->assertText(t('@name @title has been updated.', array('@name' => $this->type['name'], '@title' => $content['title'])));
+    $this->assertText(t('You just had 5 points deducted and now have 0 points in the General category.'));
+
+    // Verify point total.
+    $this->assertEqual(userpoints_get_current_points($this->admin->uid), 0);
+    $this->assertEqual(userpoints_get_current_points($this->user->uid), 0);
+
+
+    $this->clickLink(t('Edit'));
+    $edit_content = array(
+      'status' => TRUE,
+    );
+    $this->drupalPost(NULL, $edit_content, t('Save'));
+    $this->assertText(t('@name @title has been updated.', array('@name' => $this->type['name'], '@title' => $content['title'])));
+    $this->assertText(t('@user just earned 5 points and now has 5 points in the General category.', array('@user' => $this->user->name)));
+
+    // Verify point total.
+    $this->assertEqual(userpoints_get_current_points($this->admin->uid), 0);
+    $this->assertEqual(userpoints_get_current_points($this->user->uid), 5);
+  }
+}

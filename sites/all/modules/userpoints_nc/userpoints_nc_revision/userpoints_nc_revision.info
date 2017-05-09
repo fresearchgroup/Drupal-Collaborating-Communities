@@ -1,0 +1,15 @@
+name = Userpoints Revision
+description = Gives users points for creating revisions of content.
+core = 7.x
+package = Userpoints
+dependencies[] = userpoints
+dependencies[] = userpoints_nc
+files[]=userpoints_revision.module
+configure=admin/config/people/userpoints/settings
+
+; Information added by drupal.org packaging script on 2011-11-12
+version = "7.x-1.0"
+core = "7.x"
+project = "userpoints_nc"
+datestamp = "1321089647"
+

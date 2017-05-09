@@ -1,0 +1,186 @@
+<?php
+
+/**
+ * @file
+ * Gives users points for creating revisions on nodes.
+ */
+
+/**
+ * Implements hook_node_update().
+ */
+function userpoints_nc_revision_node_update($node) {
+  if ($node->revision && userpoints_nc_get_setting('revision_enabled', $node->type, TRUE)) {
+    global $user;
+    $points_own_nodes = userpoints_nc_get_setting('revision_own_nodes', $node->type);
+
+    if (!$points_own_nodes && $user->uid == $node->uid) {
+      return;
+    }
+    $points = userpoints_nc_get_setting('revision_points', $node->type);
+    $tid = userpoints_nc_get_setting('revision_category', $node->type);
+
+    $params = array(
+      'points'  => $points,
+      'tid'     => $tid,
+      'uid'       => $user->uid,
+      'operation'   => 'userpoints_nc_revision',
+      'entity_id'    => $node->nid,
+      'entity_type'  => 'node'
+    );
+    userpoints_userpointsapi($params);
+  }
+}
+
+/**
+ * Implements hook_userpoints().
+ */
+function userpoints_nc_revision_userpoints($op, $params = array()) {
+  switch ($op) {
+    case 'setting':
+
+      $form['userpoints_nc_revision'] = array(
+        '#type'        => 'fieldset',
+        '#collapsible' => TRUE,
+        '#collapsed'   => TRUE,
+        '#title'       => t('Content revisions'),
+        '#group'       => 'settings_additional',
+        '#weight'      => 25,
+        '#attached' => array(
+          'js' => array(
+            'userpoints_nc' => drupal_get_path('module', 'userpoints_nc_revision') . '/userpoints_nc_revision.js',
+          ),
+        ),
+      );
+
+      $form['userpoints_nc_revision']['userpoints_nc_revision_enabled'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Enabled by default'),
+        '#default_value' => userpoints_nc_get_setting('revision_enabled', NULL, TRUE),
+        '#description' => t('If checked, all content types award !points by default for new revisions. This can be overridden for each content type on the content type edit page.', userpoints_translation()),
+      );
+
+      $form['userpoints_nc_revision']['userpoints_nc_revision_points'] = array(
+        '#type'          => 'textfield',
+        '#title'         => t('Default !points for a new revision', userpoints_translation()),
+        '#description'   => t('Set the default number of !points to be awarded when a user adds a new revision. This can be overridden for each content type.', userpoints_translation()),
+        '#default_value' => userpoints_nc_get_setting('revision_points'),
+        '#size'          => 5,
+        '#maxlength'     => 5,
+      );
+
+      $form['userpoints_nc_revision']['userpoints_nc_revision_category'] = array(
+        '#type'          => 'select',
+        '#title'         => t('Default !points category for a new revision', userpoints_translation()),
+        '#description'   => t('Choose the category of !points to be used by default when a user adds a new revision. This can be overridden for each content type.', userpoints_translation()),
+        '#options'       => userpoints_get_categories(),
+        '#default_value' => userpoints_nc_get_setting('revision_category', NULL, userpoints_get_default_tid()),
+      );
+
+      $form['userpoints_nc_revision']['userpoints_nc_revision_own_nodes'] = array(
+        '#type' => 'checkbox',
+        '#default_value' => userpoints_nc_get_setting('revision_own_nodes'),
+        '#title' => t('Award !points for revisions by the content author', userpoints_translation()),
+        '#description' => t('By default, the content author is not eligible to earn !points for new revisions (only other users who submit revisions can earn !points). But if this option is checked, the content author can earn !points, too. This can be overridden for each content type.', userpoints_translation()),
+      );
+
+      return $form;
+      break;
+  }
+}
+
+/**
+ * Implements hook_form_BASE_alter().
+ */
+function userpoints_nc_revision_form_node_type_form_alter(&$form, &$form_state) {
+  $type = $form['#node_type']->type;
+
+  $form['userpoints_nc_revision'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('!Points for revisions', userpoints_translation()),
+    '#collapsible' => TRUE,
+    '#collapsed' => FALSE,
+    '#access' => user_access('administer userpoints'),
+    '#weight' => 25,
+    '#group' => 'additional_settings',
+    '#attached' => array(
+      'js' => array(
+        'userpoints_nc' => drupal_get_path('module', 'userpoints_nc_revision') . '/userpoints_nc_revision.js',
+      ),
+    ),
+  );
+
+  $form['userpoints_nc_revision']['userpoints_nc_revision_enabled'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Enabled'),
+    '#default_value' => userpoints_nc_get_setting('revision_enabled', $type, TRUE),
+    '#description' => t('If checked, !points are awarded for new revisions of content of this type.', userpoints_translation()),
+  );
+
+  $form['userpoints_nc_revision']['userpoints_nc_revision_points'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('!Points for a new revision', userpoints_translation()),
+    '#description'   => t('Set the number of !points to be awarded when a user adds a new revision.', userpoints_translation()),
+    '#default_value' => userpoints_nc_get_setting('revision_points', $type),
+    '#size'          => 5,
+    '#maxlength'     => 5,
+    '#states' => array(
+      'visible' => array(
+        ':input[name="userpoints_nc_revision_enabled"]' => array('checked' => TRUE),
+      ),
+    ),
+  );
+
+  $form['userpoints_nc_revision']['userpoints_nc_revision_category'] = array(
+    '#type'          => 'select',
+    '#title'         => t('!Points category for a new revision', userpoints_translation()),
+    '#description'   => t('Choose the category of !points to be used when a user adds a new revision.', userpoints_translation()),
+    '#options'       => userpoints_get_categories(),
+    '#default_value' => userpoints_nc_get_setting('revision_category', $type, userpoints_get_default_tid()),
+    '#states' => array(
+      'visible' => array(
+        ':input[name="userpoints_nc_revision_enabled"]' => array('checked' => TRUE),
+      ),
+    ),
+  );
+
+  $form['userpoints_nc_revision']['userpoints_nc_revision_own_nodes'] = array(
+    '#type' => 'checkbox',
+    '#default_value' => userpoints_nc_get_setting('revision_own_nodes', $type),
+    '#title' => t('Award !points for revisions by the content author', userpoints_translation()),
+    '#description' => t('If unchecked, the content author is not eligible to earn !points for new revisions (only other users who submit revisions can earn !points). But if this option is checked, the content author can earn !points, too.', userpoints_translation()),
+    '#states' => array(
+      'visible' => array(
+        ':input[name="userpoints_nc_revision_enabled"]' => array('checked' => TRUE),
+      ),
+    ),
+  );
+}
+
+
+/**
+ * Implements hook_userpoints_info().
+ */
+function userpoints_nc_revision_userpoints_info() {
+  return array(
+    'userpoints_nc_revision' => array(
+      'description callback' => 'userpoints_nc_revision_description_callback',
+    ),
+  );
+}
+
+/**
+ * Description callback for userpoints operation description/reason.
+ */
+function userpoints_nc_revision_description_callback($operation, $entity) {
+  $arguments = array();
+  // Try to load content type name.
+  if ($entity) {
+    $arguments['%title'] = entity_label($operation->entity_type, $entity);
+  }
+
+  // Fallback to string content if the above failed for some reason.
+  if (empty($arguments['%title'])) {
+    $arguments['%title'] = t('content');
+  }
+  return t('Revised %title.', $arguments);
+}

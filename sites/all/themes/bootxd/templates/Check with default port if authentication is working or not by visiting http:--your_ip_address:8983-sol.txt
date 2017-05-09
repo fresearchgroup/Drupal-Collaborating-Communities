@@ -1,0 +1,8 @@
+Check with default port if authentication is working or not by visiting http://your_ip_address:8983/solr
+
+Now it must be asking for username and password. Use the Username and Password which you added in /opt/solr/etc/realm.properties to login.
+
+You should see your Solr admin console.
+
+Configuring Solr with Drupal 7
+
