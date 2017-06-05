@@ -1,0 +1,16 @@
+name = Quiz - True false
+package = Quiz question
+description = Module to create True or False Kind of Questions
+core = 7.x
+dependencies[] = quiz
+dependencies[] = quiz_question
+
+files[] = truefalse.classes.inc
+files[] = truefalse.test
+
+; Information added by Drupal.org packaging script on 2017-03-16
+version = "7.x-5.1"
+core = "7.x"
+project = "quiz"
+datestamp = "1489693108"
+

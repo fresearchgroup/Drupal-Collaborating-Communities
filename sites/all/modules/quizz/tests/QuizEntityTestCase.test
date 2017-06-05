@@ -1,0 +1,286 @@
+<?php
+
+use Drupal\quizz\Entity\QuizEntity;
+use Drupal\quizz\Entity\QuizType;
+
+/**
+ * Test aspects of quiz creation including global and user defaults.
+ */
+class QuizEntityTestCase extends QuizTestCase {
+
+  protected $extraModules = array('quizz_truefalse');
+  protected $questionHandlers = array('truefalse');
+
+  public static function getInfo() {
+    return array(
+        'name'        => t('Quiz entity'),
+        'description' => t('Test cases for Quiz entity.'),
+        'group'       => t('Quiz'),
+    );
+  }
+
+  /**
+   * Reduce runtime from 1m to ~30s.
+   */
+  public function testQuizEntityWrapper() {
+    $this->checkInitQuizEntityType();
+    $this->checkQuizEntity();
+    $this->checkQuizMethods();
+    $this->checkQuizDefaults();
+    $this->checkQuizQuestionBank();
+    $this->checkQuizCreation();
+    $this->checkQuizSaveRevionLostRelationships();
+  }
+
+  private function checkQuizQuestionBank() {
+    $quiz = $this->drupalCreateQuiz();
+    $question_1 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1, 'title' => 'TF 1'));
+    $question_2 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1, 'title' => 'TF 2'));
+
+    $this->drupalLogin($this->admin);
+
+    // Add question #1 to quiz
+    $this->drupalGet("quiz/{$quiz->qid}/questions");
+    $this->assertNoFieldByName("max_scores[{$question_1->qid}-{$question_1->vid}]");
+    $this->assertNoFieldByName("max_scores[{$question_2->qid}-{$question_2->vid}]");
+    $this->drupalPost(NULL, array("views_bulk_operations[0]" => $question_1->qid), "Add questions to Quiz");
+    $this->assertFieldByName("max_scores[{$question_1->qid}-{$question_1->vid}]");
+
+    // Take the quiz
+    $this->drupalGet("quiz/{$quiz->qid}/take");
+    $this->drupalPost(NULL, array("question[{$question_1->qid}][answer]" => 1), "Finish");
+
+    // Add question #2 to quiz
+    $this->drupalGet("quiz/{$quiz->qid}/questions");
+    $this->drupalPost(NULL, array("views_bulk_operations[1]" => $question_2->qid), "Add questions to Quiz");
+    $this->assertFieldByName("max_scores[{$question_1->qid}-{$question_1->vid}]");
+    $this->assertFieldByName("max_scores[{$question_2->qid}-{$question_2->vid}]");
+  }
+
+  private function checkInitQuizEntityType() {
+    // Default quiz type.
+    $types = entity_load('quiz_type', array('quiz'));
+    $default_quiz_type = reset($types);
+    $this->assertTrue($default_quiz_type instanceof QuizType, 'Default quiz type is created.');
+
+    $quiz_type = entity_create('quiz_type', array('type' => 'new_quiz'));
+    $this->assertTrue($quiz_type instanceof QuizType, 'Quiz type entity is created correctly using entity_create().');
+    entity_save('quiz_type', $quiz_type);
+  }
+
+  private function checkQuizMethods() {
+    // …
+  }
+
+  private function checkQuizEntity() {
+    // ---------------------
+    // Create entity
+    // ---------------------
+    $quiz = entity_create('quiz_entity', array('type' => 'quiz', 'pass_rate' => 95));
+    $this->assertTrue($quiz instanceof QuizEntity, 'Quiz entity is created correctly using entity_create().');
+
+    // ---------------------
+    // Entity form, no warning
+    // ---------------------
+    $form = entity_form('quiz_entity', $quiz);
+    foreach (array('title', 'vtabs', 'taking', 'summary_options', 'result_options', 'quiz_availability') as $k) {
+      $this->assertTrue(isset($form[$k]), "Found {$k} in form.");
+    }
+
+    // ---------------------
+    // Insert entity
+    // ---------------------
+    $quiz->save();
+    $this->assertNotNull($quiz, 'Quiz entity is created successully.');
+
+    // ---------------------
+    // Update entity
+    // ---------------------
+    $quiz->title = 'Updated demo quiz';
+    $quiz->save();
+
+    // Reload entity
+    $quiz = entity_load_single('quiz_entity', $quiz->identifier());
+    $this->assertEqual('Updated demo quiz', $quiz->title, 'Quiz entity is updated.');
+
+    // ---------------------
+    // Test revision supporting
+    // ---------------------
+    $old_revision_id = $quiz->vid;
+
+    // Save new revision
+    $quiz->title .= ' [new revision]';
+    $quiz->is_new_revision = true;
+    $quiz->log = 'Trying revision supporting';
+    $quiz->save();
+
+    // Load old revision
+    $quiz_1 = quizz_load($quiz->qid, $old_revision_id);
+    $quiz_2 = quizz_load($quiz->qid);
+    $this->assertNotEqual($quiz_1->log, $quiz_2->log, 'New revision is created correctly.');
+    $this->assertEqual(95, $quiz_1->pass_rate, 'Quiz property is saved and loaded correctly.');
+
+    // ---------------------
+    // Delete quiz entity
+    // ---------------------
+    entity_delete('quiz_entity', $quiz->identifier());
+    $null_quiz = entity_load_single('quiz_entity', $quiz->identifier());
+    $this->assertFalse($null_quiz, 'Quiz entity is deleted');
+  }
+
+  /**
+   * Test system, global, and user defaults.
+   */
+  private function checkQuizDefaults() {
+    // We need another admin user here.
+    $admin_permissions = array();
+    $admin_permissions[] = 'administer quiz configuration';
+    $admin_permissions[] = 'create quiz content';
+    $admin_permissions[] = 'edit any quiz content';
+    $admin_permissions[] = 'edit question titles';
+    $admin_permissions[] = 'access quiz';
+    $this->admin2 = $this->drupalCreateUser(array_unique($admin_permissions));
+
+    $this->drupalLogin($this->admin);
+    $this->drupalGet('quiz/add');
+
+    // These are the basic system defaults.
+    $this->assertFieldChecked('edit-allow-resume');
+    $this->assertFieldChecked('edit-allow-skipping');
+    $this->assertNoFieldChecked('edit-allow-jumping');
+    $this->assertFieldChecked('edit-allow-change');
+    $this->assertFieldChecked('edit-backwards-navigation');
+    $this->assertNoFieldChecked('edit-repeat-until-correct');
+    $this->assertNoFieldChecked('edit-mark-doubtful');
+    $this->assertFieldChecked('edit-show-passed');
+
+    $this->drupalGet('admin/quizz/settings/quiz-form');
+    // Verify the same ones show up.
+    $this->assertFieldChecked('edit-allow-resume');
+    $this->assertFieldChecked('edit-allow-skipping');
+    $this->assertNoFieldChecked('edit-allow-jumping');
+    $this->assertFieldChecked('edit-allow-change');
+    $this->assertFieldChecked('edit-backwards-navigation');
+    $this->assertNoFieldChecked('edit-repeat-until-correct');
+    $this->assertNoFieldChecked('edit-mark-doubtful');
+    $this->assertFieldChecked('edit-show-passed');
+
+    // Change a default.
+    $this->drupalPost(NULL, array('allow_resume' => FALSE), t('Save'));
+    $this->drupalGet('admin/quizz/settings/quiz-form');
+    $this->assertNoFieldChecked('edit-allow-resume');
+
+    // Check that the default carried over. Check that other options remained set.
+    $this->drupalGet('quiz/add');
+    $this->assertNoFieldChecked('edit-allow-resume');
+    $this->assertFieldChecked('edit-allow-skipping');
+
+    // Check defaults for another user.
+    $this->drupalLogin($this->admin2);
+    $this->drupalGet('quiz/add');
+    $this->assertNoFieldChecked('edit-allow-resume');
+    $this->assertFieldChecked('edit-allow-skipping');
+
+    // Set allow skipping to off as a user default.
+    $this->drupalGet('quiz/add');
+    $this->drupalPost(NULL, array(
+        'title'             => 'Test quiz',
+        'allow_jumping'     => FALSE,
+        'remember_settings' => TRUE), t('Save'));
+    $this->drupalGet('quiz/add');
+    $this->assertNoFieldChecked('edit-allow-resume');
+    $this->assertNoFieldChecked('edit-allow-jumping');
+
+    // Ensure it didn't affect another user.
+    $this->drupalLogin($this->admin);
+    $this->drupalGet('quiz/add');
+    $this->assertNoFieldChecked('edit-allow-resume');
+    $this->assertFieldChecked('edit-allow-skipping');
+  }
+
+  /**
+   * Test basic quiz creation.
+   */
+  private function checkQuizCreation() {
+    $this->drupalLogin($this->admin);
+    $this->drupalGet('quiz/add');
+    $this->drupalPost(NULL, array('title' => 'Test quiz creation'), t('Save'));
+    $this->drupalGet('quiz/' . $this->getLatestQuizId());
+    $this->assertText('Test quiz creation');
+    $this->assertText(t('Start !quiz', array('!quiz' => QUIZZ_NAME)));
+  }
+
+  private function checkQuizSaveRevionLostRelationships() {
+    $quiz = $this->linkQuestionToQuiz($question = $this->drupalCreateQuestion(array(
+        'type'           => 'truefalse',
+        'title'          => 'Revision TRUE',
+        'body'           => 'Revision TRUE',
+        'correct_answer' => 1,
+    )));
+    $this->assertEqual(1, count($quiz->getQuestionIO()->getQuestionList()));
+
+    $quiz->is_new_revision = TRUE;
+    $quiz->clone_relationships = TRUE;
+    $quiz->save();
+    $quiz_reload = quizz_load($quiz->qid, NULL, TRUE);
+    $this->assertEqual(1, count($quiz_reload->getQuestionIO()->getQuestionList()));
+  }
+
+  /**
+   * Test quiz revisioning.
+   */
+  public function testQuizRevisioning() {
+    $quiz = $this->linkQuestionToQuiz($question = $this->drupalCreateQuestion(array(
+        'type'           => 'truefalse',
+        'title'          => 'Revision TRUE',
+        'body'           => 'Revision TRUE',
+        'correct_answer' => 1,
+    )));
+
+    // Check for first revision.
+    $this->drupalLogin($this->user);
+    $this->drupalGet("quiz/$quiz->qid/take");
+    $this->assertText('Revision TRUE');
+
+    // Update question. There are already attempts now so we expect a new revision.
+    $this->drupalLogin($this->admin);
+    $this->drupalGet("quiz-question/{$question->qid}/edit");
+    $this->drupalPost(NULL, array(
+        'title'                             => 'Revision FALSE',
+        'quiz_question_body[und][0][value]' => 'Revision FALSE',
+        'correct_answer'                    => 0,
+        'revision'                          => 1,
+        'log'                               => 'Revision FALSE'
+      ), t('Save question'));
+
+    // Finish on same revision.
+    $this->drupalLogin($this->user);
+    $this->drupalGet("quiz/$quiz->qid/take");
+    $this->assertText('Revision TRUE');
+    $this->drupalPost(NULL, array("question[$question->qid][answer]" => 1), t('Finish'));
+    $this->assertText('You got 1 of 1 possible points.');
+
+    // Take quiz again. Should be on SAME revision. We have not yet updated the Quiz.
+    $this->drupalGet("quiz/$quiz->qid/take");
+    $this->assertText('Revision TRUE');
+
+    // Update the quiz to use the latest revision.
+    $this->drupalLogin($this->admin);
+    $this->drupalGet("quiz/$quiz->qid/questions");
+    $this->drupalPost(NULL, array("revision[{$question->qid}-{$question->vid}]" => TRUE), t('Submit'));
+
+    // Take quiz again. Should be on SAME revision. We have not yet finished this attempt.
+    $this->drupalLogin($this->user);
+    $this->drupalGet("quiz/$quiz->qid/take");
+    $this->assertText('Revision TRUE');
+    $this->drupalPost(NULL, array("question[$question->qid][answer]" => 1), t('Finish'));
+    $this->assertText('You got 1 of 1 possible points.');
+
+    // Take quiz again we should be on the new result, finally.
+    $this->drupalGet("quiz/$quiz->qid/take");
+    $this->assertText('Revision FALSE');
+    $this->drupalPost(NULL, array("question[$question->qid][answer]" => 1), t('Finish'));
+    $this->assertText('You got 0 of 1 possible points.');
+  }
+
+}

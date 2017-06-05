@@ -1,0 +1,175 @@
+<?php
+
+require_once dirname(__FILE__) . '/includes/quizz.hooks.inc';
+
+/**
+ * Quiz name.
+ */
+if (!defined('QUIZZ_NAME')) {
+  define('QUIZZ_NAME', t(variable_get('quiz_name', 'Quiz')));
+}
+
+/*
+ * Define question statuses…
+ */
+define('QUIZZ_QUESTION_RANDOM', 0);
+define('QUIZZ_QUESTION_ALWAYS', 1);
+define('QUIZZ_QUESTION_NEVER', 2);
+define('QUIZZ_QUESTION_CATEGORIZED_RANDOM', 3);
+
+/**
+ * Define options for keeping results.
+ */
+define('QUIZZ_KEEP_BEST', 0);
+define('QUIZZ_KEEP_LATEST', 1);
+define('QUIZZ_KEEP_ALL', 2);
+
+/**
+ * Factory to create quiz helpers wrapper.
+ *
+ * @staticvar Quiz $quiz
+ * @param string $className
+ * @return \Drupal\quizz\Quizz
+ */
+function quizz($className = 'Drupal\quizz\Quizz') {
+  if (!$obj = &drupal_static(__FUNCTION__)) {
+    $obj = new $className;
+  }
+  return $obj;
+}
+
+/**
+ * Get controller for quiz entity.
+ *
+ * @return \Drupal\quizz\Entity\QuizController
+ */
+function quizz_entity_controller() {
+  return entity_get_controller('quiz_entity');
+}
+
+/**
+ * Get controller for quiz result entity.
+ *
+ * @return \Drupal\quizz\Entity\ResultController
+ */
+function quizz_result_controller() {
+  return entity_get_controller('quiz_result');
+}
+
+/**
+ * Get controller for answer entity.
+ *
+ * @return \Drupal\quizz\Entity\AnswerController
+ */
+function quizz_answer_controller() {
+  return entity_get_controller('quiz_result_answer');
+}
+
+/**
+ * Gets an array of all quiz types, keyed by the type name.
+ *
+ * @return \Drupal\quizz\Entity\QuizType[]
+ */
+function quizz_get_types() {
+  return entity_load_multiple_by_name('quiz_type');
+}
+
+/**
+ * Get quiz-type by machine name.
+ *
+ * @param string $name
+ * @return \Drupal\quizz\Entity\QuizType
+ */
+function quizz_type_load($name) {
+  $type = entity_load_multiple_by_name('quiz_type', array($name));
+  return isset($type[$name]) ? $type[$name] : NULL;
+}
+
+/**
+ * Load quiz entity
+ *
+ * @return \Drupal\quizz\Entity\QuizEntity
+ */
+function quizz_load($id = NULL, $vid = NULL, $reset = FALSE) {
+  $conditions = NULL === $vid ? array('qid' => $id) : array('vid' => $vid);
+  if ($results = entity_load('quiz_entity', FALSE, $conditions, $reset)) {
+    return reset($results);
+  }
+}
+
+/**
+ * Shortcut to entity_load_single().
+ *
+ * @return \Drupal\quizz\Entity\Result
+ */
+function quizz_result_load($result_id) {
+  return entity_load_single('quiz_result', $result_id);
+}
+
+/**
+ * Get relationship entity.
+ *
+ * @param int $relationship_id
+ * @return \Drupal\quizz\Entity\Relationship
+ */
+function quizz_relationship_load($relationship_id) {
+  return entity_load_single('quiz_relationship', $relationship_id);
+}
+
+/**
+ * Action to add questions to the current quiz.
+ *
+ * @param \Drupal\quizz_question\Entity\Question $question
+ * @return bool
+ */
+function quizz_add_qestion_to_quiz_action($question) {
+  return quizz_load(quizz_get_id_from_url())->addQuestion($question);
+}
+
+/**
+ * Check if the question has already been answered in the requested attempt.
+ *
+ * @return bool
+ */
+function quizz_result_is_question_answered($result, $question) {
+  if ($answer = quizz_answer_controller()->loadByResultAndQuestion($result->result_id, $question->vid)) {
+    return !empty($answer->answer_timestamp);
+  }
+  return FALSE;
+}
+
+/**
+ * Helper function to faciliate icon display, like "correct" or "selected".
+ */
+function quizz_icon($icon) {
+  return theme('quizz_answer_result', array('type' => $icon));
+}
+
+/**
+ * Helper function used when validating integers.
+ *
+ * @param int $value
+ *   The value to be validated.
+ * @param int $min
+ *   The minimum value $value is allowed to be.
+ * @param int $max
+ *   The maximum value $value is allowed to be.
+ *
+ * @return
+ *   TRUE if integer in the allowed range. FALSE otherwise.
+ */
+function quizz_valid_integer($value, $min = 1, $max = NULL) {
+  $to_return = (string) $value === (string) (int) $value;
+  if ((!$to_return) || ($value < $min) || (isset($max) && ($value > $max))) {
+    return FALSE;
+  }
+  return TRUE;
+}
+
+/**
+ * Get quiz ID from page context — /quiz/%
+ * @return int
+ */
+function quizz_get_id_from_url($path = NULL) {
+  return (int) arg(1, $path);
+}

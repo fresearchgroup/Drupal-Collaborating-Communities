@@ -1,0 +1,124 @@
+<?php
+
+use Drupal\quizz\Entity\Result;
+use Drupal\quizz_question\Entity\Question;
+
+/**
+ * Quiz Question module.
+ * This module provides the basic facilities for adding quiz question types to a quiz.
+ */
+require_once dirname(__FILE__) . '/quizz_question.hooks.inc';
+
+/**
+ * Get controller for question entity.
+ *
+ * @return \Drupal\quizz_question\Entity\QuestionController
+ */
+function quizz_question_controller() {
+  return entity_get_controller('quiz_question_entity');
+}
+
+/**
+ * Get all question types.
+ *
+ * @return \Drupal\quizz_question\Entity\QuestionType[]
+ */
+function quizz_question_get_types() {
+  $conditions = array('disabled' => 0, 'handler' => array_keys(quizz_question_get_handler_info()));
+  return entity_load_multiple_by_name('quiz_question_type', FALSE, $conditions);
+}
+
+/**
+ * Load question type.
+ *
+ * @param string $name
+ * @return \Drupal\quizz_question\Entity\QuestionType
+ */
+function quizz_question_type_load($name) {
+  $types = entity_load_multiple_by_name('quiz_question_type', array($name));
+  return isset($types[$name]) ? $types[$name] : NULL;
+}
+
+/**
+ * Load question entity.
+ *
+ * @param int $id
+ * @param int $vid
+ * @param bool $reset
+ * @return \Drupal\quizz_question\Entity\Question
+ */
+function quizz_question_load($id = NULL, $vid = NULL, $reset = FALSE) {
+  $conditions = NULL === $vid ? array('qid' => $id) : array('vid' => $vid);
+  if ($results = entity_load('quiz_question_entity', FALSE, $conditions, $reset)) {
+    return reset($results);
+  }
+}
+
+/**
+ * Get the information about various implementations of quiz questions.
+ *
+ * @param string $name
+ * @param boolean $reset
+ * @return array
+ * @see quiz_question_quizz_question_info() for an example of a quiz question info hook.
+ */
+function quizz_question_get_handler_info($name = NULL, $reset = FALSE) {
+  $info = &drupal_static(__FUNCTION__, array());
+
+  if (empty($info) || $reset) {
+    $info = module_invoke_all('quizz_question_info');
+    drupal_alter('quizz_question_info', $info);
+  }
+
+  if ((NULL !== $name) && !isset($info[$name])) {
+    $msg = t('Question handler not found: @name', array('@name' => $name));
+    throw new RuntimeException($msg);
+  }
+
+  return $name ? $info[$name] : $info;
+}
+
+/**
+ * Figure out if a user has access to score a certain result
+ *
+ * @param int $question_vid
+ * @param int $result_id
+ * @return bool
+ *  True if the user has access to score the result
+ */
+function quizz_question_access_to_score($question_vid, $result_id) {
+  global $user;
+
+  if (!$answers = entity_load('quiz_result_answer', FALSE, array('result_id' => $result_id, 'question_vid' => $question_vid))) {
+    return FALSE;
+  }
+
+  if (user_access('score any quiz')) {
+    return TRUE;
+  }
+
+  if (user_access('score taken quiz answer')) {
+    if ($result = quizz_result_load($result_id)) {
+      if ($user->uid == $result->uid) {
+        return TRUE;
+      }
+    }
+  }
+
+  if (user_access('score own quiz')) {
+    if ($result = quizz_result_load($result_id)) {
+      if ($quiz = quizz_load(NULL, $result->quiz_vid)) {
+        return $user->uid == $quiz->uid;
+      }
+    }
+  }
+}
+
+/**
+ * Theme the feedback for any question type.
+ */
+function theme_quizz_question_feedback($variables) {
+  $rows = $variables['data'];
+  $headers = array_intersect_key($variables['labels'], $rows[0]);
+  return theme('table', array('header' => $headers, 'rows' => $rows));
+}

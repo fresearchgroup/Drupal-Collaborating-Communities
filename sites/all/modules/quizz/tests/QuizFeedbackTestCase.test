@@ -1,0 +1,183 @@
+<?php
+
+use Drupal\quizz\Entity\QuizEntity;
+
+/**
+ * Base test class for Quiz questions.
+ */
+class QuizFeedbackTestCase extends QuizTestCase {
+
+  protected $extraModules = array('quizz_truefalse');
+  protected $questionHandlers = array('truefalse');
+  protected $extraUserPermissions = array('view any quiz question correct response');
+
+  public static function getInfo() {
+    return array(
+        'name'        => t('Quiz feedback'),
+        'description' => t('Test cases for Quiz feedback.'),
+        'group'       => t('Quiz'),
+    );
+  }
+
+  /**
+   * Test question feedback. Note that we are only testing if any feedback
+   * displays, each question type has its own tests for testing feedback
+   * returned from that question type.
+   */
+  public function testAnswerFeedback() {
+    $quiz = $this->drupalCreateQuiz();
+
+    // 2 questions.
+    $question_1 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $question_2 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $this->linkQuestionToQuiz($question_1, $quiz);
+    $this->linkQuestionToQuiz($question_2, $quiz);
+
+    // This is a dynamic test that only tests the feedback columns showing up.
+    $quiz
+      ->getQuizType()
+      ->setConfig('quiz_auto_revisioning', 0)
+      ->save();
+
+    $review_options = array(
+        'attempt'         => t('Your answer'),
+        'correct'         => t('Correct?'),
+        'score'           => t('Score'),
+        'answer_feedback' => t('Feedback'),
+        'solution'        => t('Correct answer'),
+    );
+
+    $this->drupalLogin($this->user);
+    $this->checkAfterQuestion($quiz, $question_1, $review_options);
+    $this->checkAfterQuiz($quiz, $question_2, $review_options);
+  }
+
+  private function checkAfterQuestion(QuizEntity $quiz, $question, $review_options) {
+    // Answer the first question.
+    $this->drupalGet("quiz/{$quiz->qid}/take");
+    $this->drupalPost(NULL, array("question[$question->qid][answer]" => 1), t('Next'));
+
+    // Check feedback after the Question
+    foreach ($review_options as $option => $text) {
+      $quiz->review_options = array('question' => array($option => $option));
+      $quiz->save();
+
+      $this->drupalGet("quiz/{$quiz->qid}/take/1/feedback");
+      $this->assertRaw('<th>' . $text . '</th>');
+      foreach ($review_options as $option2 => $text2) {
+        if ($option != $option2) {
+          $this->assertNoRaw('<th>' . $text2 . '</th>');
+        }
+      }
+    }
+  }
+
+  private function checkAfterQuiz(QuizEntity $quiz, $question, $review_options) {
+    // Feedback only after the quiz.
+    $this->drupalGet("quiz/{$quiz->qid}/take/1/feedback");
+    $this->drupalPost(NULL, array(), t('Next question'));
+    $this->drupalPost(NULL, array("question[$question->qid][answer]" => 1), t('Finish'));
+
+    // Check feedback after the Quiz
+    foreach ($review_options as $option => $text) {
+      $quiz->review_options['end'] = array($option => $option);
+      $quiz->save();
+
+      $this->drupalGet("quiz-result/1");
+      $this->assertRaw('<th>' . $text . '</th>');
+      foreach ($review_options as $option2 => $text2) {
+        if ($option != $option2) {
+          $this->assertNoRaw('<th>' . $text2 . '</th>');
+        }
+      }
+    }
+  }
+
+  /**
+   * Test general Quiz question feedback.
+   */
+  public function testQuestionFeedback() {
+    // Turn on question feedback at the end.
+    $quiz = $this->drupalCreateQuiz(array(
+        'review_options' => array(
+            'end' => array(
+                'question_feedback' => 'question_feedback'
+            )
+        ),
+      )
+    );
+
+    // Add 2 questions.
+    $question_1 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $question_2 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $this->linkQuestionToQuiz($question_1, $quiz);
+    $this->linkQuestionToQuiz($question_2, $quiz);
+
+    // Set feedback.
+    $_question_1 = quizz_question_load($question_1->qid, $question_1->vid);
+    $_question_1->feedback = 'Feedback for TF test.';
+    $_question_1->feedback_format = filter_default_format();
+    $_question_1->save();
+
+    $_question_2 = quizz_question_load($question_2->qid, $question_2->vid);
+    $_question_2->feedback = 'Feedback for TF test.';
+    $_question_2->feedback_format = filter_default_format();
+    $_question_2->save();
+
+    // Test
+    $this->drupalLogin($this->user);
+    $this->drupalGet("quiz/$quiz->qid/take");
+    $this->drupalPost(NULL, array("question[$question_1->qid][answer]" => 1), t('Next'));
+    $this->assertNoText('Feedback for TF test.');
+    $this->drupalPost(NULL, array("question[$question_2->qid][answer]" => 1), t('Finish'));
+    $this->assertText('Feedback for TF test.');
+  }
+
+  /**
+   * Test Quiz question body feedback.
+   */
+  public function testQuestionBodyFeedback() {
+    // Asolutely no feedback.
+    $quiz = $this->drupalCreateQuiz(array('review_options' => array()));
+
+    // Set up a Quiz with one question that has a body and a summary.
+    $question = $this->drupalCreateQuestion(array(
+        'type'               => 'truefalse',
+        'correct_answer'     => 1,
+        'quiz_question_body' => array(LANGUAGE_NONE => array(
+                array(
+                    'value'   => 'TF 1 body text',
+                    'summary' => 'TF 1 summary text'
+                )
+            )),
+    ));
+    $this->linkQuestionToQuiz($question, $quiz);
+
+    // Test no feedback.
+    $this->drupalLogin($this->user);
+    $this->drupalGet("quiz/$quiz->qid/take");
+    $this->drupalPost(NULL, array("question[$question->qid][answer]" => 1), t('Finish'));
+    $this->assertNoText('TF 1 body text');
+    $this->assertNoText('TF 1 summary text');
+
+    // Test full feedback
+    $quiz->review_options = array('end' => drupal_map_assoc(array('quiz_question_view_full')));
+    $quiz->save();
+    $this->drupalLogin($this->user);
+    $this->drupalGet("quiz/$quiz->qid/take");
+    $this->drupalPost(NULL, array("question[$question->qid][answer]" => 1), t('Finish'));
+    $this->assertText('TF 1 body text');
+    $this->assertNoText('TF 1 summary text');
+
+    // Test teaser feedback
+    $quiz->review_options = array('end' => drupal_map_assoc(array('quiz_question_view_teaser')));
+    $quiz->save();
+    $this->drupalLogin($this->user);
+    $this->drupalGet("quiz/$quiz->qid/take");
+    $this->drupalPost(NULL, array("question[$question->qid][answer]" => 1), t('Finish'));
+
+    $this->assertNoText('TF 1 body text');
+    $this->assertText('TF 1 summary text');
+  }
+
+}

@@ -1,0 +1,188 @@
+<?php
+
+/**
+ * Tests for random questions.
+ *
+ * Since this is random by nature, there is a chance that these will fail. We
+ * use 5 layout builds to try and mitigate that chance.
+ */
+class QuizRandomTestCase extends QuizTestCase {
+
+  protected $questionHandlers = array('truefalse');
+  protected $extraModules = array('taxonomy', 'quizz_truefalse');
+
+  public static function getInfo() {
+    return array(
+        'name'        => 'Quiz random',
+        'description' => 'Test cases for random quiz question behavior',
+        'group'       => 'Quiz',
+    );
+  }
+
+  /**
+   * Test random order of questions.
+   */
+  public function testRandomOrder() {
+    $quiz = $this->drupalCreateQuiz(array('randomization' => 1));
+    $question_1 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1, 'body' => 'TF 1 body text'));
+    $question_2 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1, 'body' => 'TF 2 body text'));
+    $question_3 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1, 'body' => 'TF 3 body text'));
+    $question_4 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1, 'body' => 'TF 4 body text'));
+    $question_5 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1, 'body' => 'TF 5 body text'));
+    $this->linkQuestionToQuiz($question_1, $quiz);
+    $this->linkQuestionToQuiz($question_2, $quiz);
+    $this->linkQuestionToQuiz($question_3, $quiz);
+    $this->linkQuestionToQuiz($question_4, $quiz);
+    $this->linkQuestionToQuiz($question_5, $quiz);
+
+    for ($i = 1; $i <= 5; $i++) {
+      $out[$i] = '';
+      foreach ($quiz->getQuestionIO()->getQuestionList() as $question) {
+        $out[$i] .= $question['qid'];
+      }
+    }
+
+    // Check that at least one of the orders is different.
+    $this->assertNotEqual(count(array_unique($out)), 1, t('At least one set of questions was different.'));
+  }
+
+  /**
+   * Test random plus required questions from a pool.
+   */
+  public function testRandomQuestions() {
+    $quiz = $this->drupalCreateQuiz(array('randomization' => 2, 'number_of_random_questions' => 2));
+    $question_1 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1, 'body' => 'TF 1 body text'));
+    $question_2 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1, 'body' => 'TF 2 body text'));
+    $question_3 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1, 'body' => 'TF 3 body text'));
+    $question_4 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1, 'body' => 'TF 4 body text'));
+    $question_5 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1, 'body' => 'TF 5 body text'));
+    $this->linkQuestionToQuiz($question_1, $quiz);
+    $this->linkQuestionToQuiz($question_2, $quiz);
+    $this->linkQuestionToQuiz($question_3, $quiz);
+    $this->linkQuestionToQuiz($question_4, $quiz);
+    $this->linkQuestionToQuiz($question_5, $quiz);
+
+    // Set up one required question.
+    $result = entity_load('quiz_relationship', FALSE, array('question_vid' => $question_1->qid));
+    $relationship = reset($result);
+    $relationship->question_status = 1;
+    entity_save('quiz_relationship', $relationship);
+
+    for ($i = 1; $i <= 5; $i++) {
+      $questions = $quiz->getQuestionIO()->getQuestionList();
+      $this->assertEqual(count($questions), 3, t('Quiz has 2 questions.'));
+      $out[$i] = '';
+      foreach ($questions as $question) {
+        $out[$i] .= $question['qid'];
+      }
+      $this->assert(strpos($out[$i], $question_1->qid) !== FALSE, t('Quiz always contains required question 1'));
+    }
+
+    // Also check that at least one of the orders is different.
+    $this->assertNotEqual(count(array_unique($out)), 1, t('At least one set of questions were different.'));
+  }
+
+  private function setupCategorizedRandomQuestions() {
+    $question_type = quizz_question_type_load('default_truefalse');
+    $question_type->create_category = TRUE;
+    $question_type->save();
+
+    $vocab = taxonomy_vocabulary_machine_name_load('quiz_question_category');
+
+    // Terms.
+    $term1 = new stdClass;
+    $term1->vid = $vocab->vid;
+    $term1->name = 'Vocab 1 Term 1';
+    taxonomy_term_save($term1);
+
+    $term2 = new stdClass;
+    $term2->vid = $vocab->vid;
+    $term2->name = 'Vocab 1 Term 2';
+    taxonomy_term_save($term2);
+
+    $base1 = array('type' => 'truefalse', 'correct_answer' => 1, 'quizz_question_category' => $term1->tid);
+    $base2 = array('type' => 'truefalse', 'correct_answer' => 1, 'quizz_question_category' => $term2->tid);
+
+    $this->drupalCreateQuestion($base1 + array('title' => 'tf 1 v1t1', 'body' => 'TF 1 body text'));
+    $this->drupalCreateQuestion($base1 + array('title' => 'tf 2 v1t1', 'body' => 'TF 1 body text'));
+    $this->drupalCreateQuestion($base1 + array('title' => 'tf 3 v1t1', 'body' => 'TF 1 body text'));
+    $this->drupalCreateQuestion($base2 + array('title' => 'tf 4 v1t2', 'body' => 'TF 1 body text'));
+    $this->drupalCreateQuestion($base2 + array('title' => 'tf 5 v1t2', 'body' => 'TF 1 body text'));
+    $this->drupalCreateQuestion($base2 + array('title' => 'tf 6 v1t2', 'body' => 'TF 1 body text'));
+
+    return array($term1, $term2);
+  }
+
+  /**
+   * Test pulling questions from categories.
+   */
+  public function testCategorizedRandomQuestions() {
+    list($term1, $term2) = $this->setupCategorizedRandomQuestions();
+
+    // Create quiz with two terms
+    $quiz = $this->drupalCreateQuiz(array('randomization' => QUIZZ_QUESTION_CATEGORIZED_RANDOM));
+    $quiz_term1 = array('qid' => $quiz->qid, 'vid' => $quiz->vid, 'tid' => $term1->tid, 'max_score' => 1, 'number' => 2, 'weight' => 0);
+    $quiz_term2 = array('qid' => $quiz->qid, 'vid' => $quiz->vid, 'tid' => $term2->tid, 'max_score' => 1, 'number' => 2, 'weight' => 0);
+    drupal_write_record('quiz_entity_terms', $quiz_term1);
+    drupal_write_record('quiz_entity_terms', $quiz_term2);
+
+    $list = $quiz->getQuestionIO()->getQuestionList();
+    $this->assertEqual(count($list), 4, 'Quiz had 4 questions.');
+
+    // Start the quiz.
+    $this->drupalLogin($this->user);
+    $this->drupalGet("quiz/{$quiz->qid}/take");
+  }
+
+  /**
+   * Test that questions inside of pages are shuffled.
+   */
+  function testRandomOrderInPages() {
+    $this->drupalLogin($this->admin);
+
+    $quiz = $this->drupalCreateQuiz(array('randomization' => 1));
+
+    // Create the questions & pages
+    $q1 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1, 'body' => 'TF 1 body text'));
+    $q2 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1, 'body' => 'TF 2 body text'));
+    $q3 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1, 'body' => 'TF 3 body text'));
+    $p1 = $this->drupalCreateQuestion(array('type' => 'quiz_page'));
+    $p2 = $this->drupalCreateQuestion(array('type' => 'quiz_page'));
+    $this->linkQuestionToQuiz($q1, $quiz);
+    $this->linkQuestionToQuiz($q2, $quiz);
+    $this->linkQuestionToQuiz($q3, $quiz);
+    $this->linkQuestionToQuiz($p1, $quiz);
+    $this->linkQuestionToQuiz($p2, $quiz);
+
+    // Go to the manage questions form.
+    $this->drupalGet("quiz/$quiz->qid/questions");
+    $this->drupalPost(NULL, array(
+        // Make the questions have parents.
+        "qr_pids[{$q1->qid}-{$q1->vid}]" => 4,
+        "qr_pids[{$q2->qid}-{$q2->vid}]" => 4,
+        "qr_pids[{$q3->qid}-{$q3->vid}]" => 5,
+        // Mirror what JS would have done by adjusting the weights.
+        "weights[{$p1->qid}-{$p1->vid}]" => 2,
+        "weights[{$q1->qid}-{$q1->vid}]" => 3,
+        "weights[{$q2->qid}-{$q2->vid}]" => 4,
+        "weights[{$p2->qid}-{$p2->vid}]" => 3,
+        "weights[{$q3->qid}-{$q3->vid}]" => 4,
+      ), t('Submit'));
+
+    for ($i = 1; $i <= 5; $i++) {
+      $questions = $quiz->getQuestionIO()->getQuestionList();
+      $out[$i] = '';
+      foreach ($questions as $question) {
+        $out[$i] .= $question['qid'];
+      }
+    }
+
+    // Check that at least one of the orders is different.
+    $this->assertNotEqual(count(array_unique($out)), 1, t('At least one set of questions was different.'));
+
+    // Start the quiz.
+    $this->drupalLogin($this->user);
+    $this->drupalGet("quiz/{$quiz->qid}/take");
+  }
+
+}

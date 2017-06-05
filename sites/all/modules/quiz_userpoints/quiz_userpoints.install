@@ -1,0 +1,162 @@
+<?php
+
+/**
+ * @file
+ * Quiz userpoints install schema for installing the quiz userpoints module.
+ *
+ */
+
+/**
+ * Implements hook_install().
+ */
+function quiz_userpoints_install() {
+  // Migrate userpoints data
+  if (db_field_exists('quiz_node_properties', 'has_userpoints') && db_field_exists('quiz_node_properties', 'userpoints_tid')) {
+    quiz_userpoints_update_7100();
+  }
+}
+
+/**
+ * Implements hook_schema().
+ */
+function quiz_userpoints_schema() {
+  $schema = array();
+  // Create the quiz userpoints properties table.
+  $schema['quiz_userpoints_properties'] = array(
+    'description' => 'The base table for quiz nodes',
+    'fields' => array(
+      'vid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'The current {quiz}.vid version identifier.'
+      ),
+      'nid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'The primary identifier for the Quiz node.',
+      ),
+      'userpoints_idx' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Userpoints setting index. Used for Quiz with multiple userpoints.',
+      ),
+      'has_userpoints' => array(
+        'type' => 'int',
+        'size' => 'tiny',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Boolean indicating whether the Quiz should award user points.',
+      ),
+      'userpoints_tid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Taxonomy ID used for userpoints integration.',
+      ),
+      'award_mode' => array(
+        'type' => 'int',
+        'size' => 'tiny',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Boolean indicating award mode should be used.',
+      ),
+      'award_once' => array(
+        'type' => 'int',
+        'size' => 'tiny',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Boolean indicating award is limited to once.',
+      ),
+      'score_type' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'default' => 0,
+        'description' => 'Score type: Numeric, percentage etc score.',
+      ),
+      'description' => array(
+        'description' => 'Description',
+        'type' => 'text',
+      ),
+      'own_value' => array(
+        'description' => 'Option with own value of Points.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'indexes' => array(
+      'quiz_id' => array('vid', 'nid'),
+    )
+  );
+
+  return $schema;
+}
+
+/**
+ * Migrate userpoints integration settings from quiz module
+ */
+function quiz_userpoints_update_7100() {
+  // Migrate data
+  $result = db_select('quiz_node_properties', 'qnp')
+    ->fields('qnp', array('nid', 'vid', 'has_userpoints', 'userpoints_tid'))
+    ->condition(
+      db_or()
+        ->condition('qnp.has_userpoints', 1)
+        ->condition('qnp.userpoints_tid', 0, '<>')
+    )
+    ->execute();
+
+  if ($result->rowCount()) {
+    // We have old data and 'quiz_userpoints_properties' table.
+    foreach ($result as $row) {
+      db_insert('quiz_userpoints_properties')
+        ->fields(array(
+          'nid' => $row->nid,
+          'vid' => $row->vid,
+          'has_userpoints' => $row->has_userpoints,
+          'userpoints_tid' => $row->userpoints_tid,
+          'description' => 'Attended [node:title] on [date:short]',
+        ))
+        ->execute();
+    }
+  }
+
+  // Remove unused variable.
+  variable_del('quiz_has_userpoints');
+
+  // Remove fields.
+  //db_drop_field('quiz_node_properties', 'has_userpoints');
+  //db_drop_field('quiz_node_properties', 'userpoints_tid');
+
+  // Clear cache.
+  entity_info_cache_clear();
+}
+
+/**
+ * Add own value score type support.
+ */
+function quiz_userpoints_update_7101() {
+  try {
+    // Own value field.
+    $spec = array(
+      'description' => 'Option with own value of Points.',
+      'type' => 'int',
+      'not null' => TRUE,
+      'default' => 0,
+    );
+    db_add_field('quiz_userpoints_properties', 'own_value', $spec);
+  }
+  catch (Exception $e) {
+    throw new DrupalUpdateException(t('An exception occurred during the update: @msg.', array('@msg' => $e->getMessage())));
+  }
+}

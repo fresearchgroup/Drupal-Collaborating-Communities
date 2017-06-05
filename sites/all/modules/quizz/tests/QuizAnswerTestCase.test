@@ -1,0 +1,39 @@
+<?php
+
+class QuizAnswerTestCase extends QuizTestCase {
+
+  protected $extraModules = array('quizz_truefalse', 'text', 'field_ui');
+  protected $questionHandlers = array('truefalse');
+
+  public static function getInfo() {
+    return array(
+        'name'        => 'Quiz answer',
+        'description' => 'Test cases for Quiz answer',
+        'group'       => 'Quiz result',
+    );
+  }
+
+  public function testFieldableAnswer() {
+    $this->drupalLogin($this->admin);
+    $this->drupalPost('admin/quizz/question-types/manage/default_truefalse/answer/fields', array(
+        'fields[_add_new_field][label]'       => 'Notes',
+        'fields[_add_new_field][field_name]'  => 'notes',
+        'fields[_add_new_field][type]'        => 'text',
+        'fields[_add_new_field][widget_type]' => 'text_textfield',
+      ), 'Save');
+    $this->drupalPost(NULL, array(), 'Save field settings');
+    $this->drupalPost(NULL, array('instance[required]' => TRUE), 'Save settings');
+
+    $quiz = $this->drupalCreateQuiz();
+    $question = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $this->linkQuestionToQuiz($question, $quiz);
+    $this->drupalLogin($this->user);
+    $this->drupalGet("quiz/{$quiz->qid}/take");
+    $this->drupalPost(NULL, array('question[1][answer]' => TRUE), 'Finish');
+    $this->assertText('Notes field is required.');
+    $this->drupalPost(NULL, array('question[1][field_notes][und][0][value]' => 'Just a note'), 'Finish');
+    $this->assertText('Your score: 100%');
+    $this->assertText('Just a note');
+  }
+
+}

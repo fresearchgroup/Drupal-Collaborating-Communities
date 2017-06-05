@@ -1,0 +1,130 @@
+<?php
+
+class PageQuestionTestCase extends QuizTestCase {
+
+  protected $extraModules = array('quizz_truefalse');
+  protected $questionHandlers = array('truefalse', 'quiz_page');
+
+  public static function getInfo() {
+    return array(
+        'name'        => t('Quiz page'),
+        'description' => t('Test cases for quiz pages'),
+        'group'       => 'Quiz question',
+    );
+  }
+
+  private function setupQuizPageParentage() {
+    // Create Quiz with review of score.
+    $quiz = $this->drupalCreateQuiz();
+
+    // Create the questions & pages
+    $question_1 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1, 'body' => 'TF 1 body text'));
+    $question_2 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1, 'body' => 'TF 2 body text'));
+    $question_3 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1, 'body' => 'TF 3 body text'));
+    $page_1 = $this->drupalCreateQuestion(array('title' => 'Page 1', 'type' => 'quiz_page'));
+    $page_2 = $this->drupalCreateQuestion(array('title' => 'Page 2', 'type' => 'quiz_page'));
+    $this->linkQuestionToQuiz($question_1, $quiz);
+    $this->linkQuestionToQuiz($question_2, $quiz);
+    $this->linkQuestionToQuiz($question_3, $quiz);
+    $this->linkQuestionToQuiz($page_1, $quiz);
+    $this->linkQuestionToQuiz($page_2, $quiz);
+
+    return array($quiz->qid, $question_1->qid, $question_2->qid, $question_3->qid, $page_1->qid, $page_2->qid, $question_1->vid, $question_2->vid, $question_3->vid, $page_1->vid, $page_2->vid);
+  }
+
+  /**
+   * Test that question parentage saves.
+   */
+  public function testQuizPageParentage() {
+    list($quiz_id, $q1, $q2, $q3, $p1, $p2, $v1, $v2, $v3, $pv1, $pv2) = $this->setupQuizPageParentage();
+
+    // Go to the manage questions form.
+    $this->drupalLogin($this->admin);
+    $this->drupalGet("quiz/$quiz_id/questions");
+    $this->drupalPost(NULL, array(
+        "qr_pids[{$q1}-{$v1}]"  => 4,
+        "qr_pids[{$q2}-{$v2}]"  => 4,
+        "qr_pids[{$q3}-{$v3}]"  => 5,
+        "weights[{$p1}-{$pv1}]" => 2,
+        "weights[{$q1}-{$v1}]"  => 3,
+        "weights[{$q2}-{$v2}]"  => 4,
+        "weights[{$p2}-{$pv2}]" => 3,
+        "weights[{$q3}-{$v3}]"  => 4,
+      ), t('Submit'));
+
+    $sql = "SELECT * FROM {quiz_relationship}";
+    $data = db_query($sql)->fetchAllAssoc('qr_id');
+    // Check the relationships properly saved.
+    foreach ($data as $qr_id => $relationship) {
+      switch ($qr_id) {
+        case 1:
+        case 2:
+          $this->assertEqual($relationship->qr_pid, 4);
+          break;
+        case 3:
+          $this->assertEqual($relationship->qr_pid, 5);
+          break;
+        case 4:
+        case 5:
+          $this->assertNull($relationship->qr_pid);
+          break;
+      }
+    }
+
+    // Take the quiz. Ensure the pages are correct.
+    $this->drupalLogin($this->user);
+    $this->drupalGet("quiz/{$quiz_id}/take");
+    // Questions 1 and 2 are present. Question 3 is hidden.
+    $this->assertFieldByName("question[{$q1}][answer]");
+    $this->assertFieldByName("question[{$q2}][answer]");
+    $this->assertNoFieldByName("question[{$q3}][answer]");
+    $this->drupalPost(NULL, array("question[{$q1}][answer]" => 1, "question[{$q2}][answer]" => 1), t('Next'));
+    // Questions 1 and 2 are gone. Question 3 is present.
+    $this->assertNoFieldByName("question[{$q1}][answer]");
+    $this->assertNoFieldByName("question[{$q2}][answer]");
+    $this->assertFieldByName("question[{$q3}][answer]");
+    $this->drupalPost(NULL, array("question[{$q3}][answer]" => 1), t('Finish'));
+
+    // Check that the results page contains all the questions.
+    $this->assertText('You got 3 of 3 possible points.');
+    $this->assertText('TF 1 body text');
+    $this->assertText('TF 2 body text');
+    $this->assertText('TF 3 body text');
+
+    // Check to make sure that saving a new revision of the Quiz does not affect the parentage.
+    $this->drupalLogin($this->admin);
+
+    // Go to the manage questions form.
+    $this->drupalGet("quiz/$quiz_id/questions");
+    $this->drupalPost(NULL, array(
+        // Make the questions have parents.
+        "qr_pids[{$q1}-{$v1}]"  => $p1,
+        "qr_pids[{$q2}-{$v2}]"  => $p1,
+        "qr_pids[{$q3}-{$v3}]"  => $p2,
+        // Mirror what JS would have done by adjusting the weights.
+        "weights[{$p1}-{$pv1}]" => 1,
+        "weights[{$q1}-{$v1}]"  => 2,
+        "weights[{$q2}-{$v2}]"  => 3,
+        "weights[{$p2}-{$pv2}]" => 4,
+        "weights[{$q3}-{$v3}]"  => 5,
+      ), t('Submit'));
+    $this->drupalGet("quiz/$quiz_id/questions");
+
+    // Take the quiz. Ensure the pages are correct.
+    $this->drupalLogin($this->user);
+    $this->drupalGet("quiz/{$quiz_id}/take");
+
+    // Questions 1 and 2 are present. Question 3 is hidden.
+    $this->assertFieldByName("question[{$q1}][answer]");
+    $this->assertFieldByName("question[{$q2}][answer]");
+    $this->assertNoFieldByName("question[{$q3}][answer]");
+    $this->drupalPost(NULL, array("question[{$q1}][answer]" => 1, "question[{$q2}][answer]" => 1), t('Next'));
+
+    // Questions 1 and 2 are gone. Question 3 is present.
+    $this->assertNoFieldByName("question[{$q1}][answer]");
+    $this->assertNoFieldByName("question[{$q2}][answer]");
+    $this->assertFieldByName("question[{$q3}][answer]");
+    $this->drupalPost(NULL, array("question[{$q3}][answer]" => 1), t('Finish'));
+  }
+
+}

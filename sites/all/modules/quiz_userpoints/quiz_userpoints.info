@@ -1,0 +1,15 @@
+name = Quiz userpoints integration
+description = Provides integration of Quiz with userpoints
+core = 7.x
+package = Quiz Addon
+dependencies[] = quiz
+dependencies[] = userpoints
+files[] = quiz_userpoints.module
+files[] = quiz_userpoints.test
+
+; Information added by Drupal.org packaging script on 2016-01-30
+version = "7.x-1.3"
+core = "7.x"
+project = "quiz_userpoints"
+datestamp = "1454193705"
+

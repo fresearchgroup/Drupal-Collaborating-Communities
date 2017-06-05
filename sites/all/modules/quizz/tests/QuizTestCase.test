@@ -1,0 +1,209 @@
+<?php
+
+use Drupal\quizz\Entity\QuizEntity;
+use Drupal\quizz_question\Entity\Question;
+
+/**
+ * Base test class for Quiz questions.
+ */
+abstract class QuizTestCase extends DrupalWebTestCase {
+
+  protected $profile = 'testing';
+  protected $extraModules = array();
+  protected $extraAdminPermissions = array();
+  protected $extraUserPermissions = array();
+  protected $questionHandler;
+  protected $questionHandlers = array();
+  protected $adminPermissions = array();
+  protected $userPermissions = array();
+
+  /** @var stdClass Normal user account. */
+  protected $user;
+
+  /** @var stdClass Admin account. */
+  protected $admin;
+
+  /**
+   * Set up a question test case.
+   *
+   * @param string[] $modules
+   * @param string[] $admin_permissions
+   * @param string[] $user_permissions
+   */
+  public function setUp($modules = array(), $admin_permissions = array(), $user_permissions = array()) {
+    parent::setUp(array_merge($modules, array('quizz', 'quizz_question'), $this->extraModules));
+    $this->setUpFilters();
+    $this->setupHandlers();
+    $this->adminPermissions = array_merge($this->adminPermissions, $admin_permissions);
+    $this->userPermissions = array_merge($this->userPermissions, $user_permissions);
+    $this->setupAccounts();
+  }
+
+  private function setupHandlers() {
+    // Test case needs create question handler
+    if (!empty($this->questionHandler) && $this->questionHandler) {
+      $this->questionHandlers[] = $this->questionHandler;
+    }
+
+    if (!empty($this->questionHandlers)) {
+      $handler_info = quizz_question_get_handler_info();
+      $question_types = quizz_question_get_types();
+      foreach ($this->questionHandlers as $handler_name) {
+        $this->assertTrue(isset($handler_info[$handler_name]), "Found {$handler_name} question handler info.");
+        $this->assertTrue(isset($question_types['default_' . $handler_name]), "Default question type for {$handler_name} is created.");
+      }
+    }
+  }
+
+  private function setupAccounts() {
+    $this->adminPermissions[] = 'administer quiz configuration';
+    $this->adminPermissions[] = 'administer quiz question types';
+    $this->adminPermissions[] = 'administer quiz questions';
+    $this->adminPermissions[] = 'create quiz content';
+    $this->adminPermissions[] = 'edit any quiz content';
+    $this->adminPermissions[] = 'edit question titles';
+    $this->adminPermissions[] = 'access quiz';
+    $this->adminPermissions[] = 'view any questions';
+    foreach ($this->extraAdminPermissions as $perm) {
+      if (!in_array($perm, $this->adminPermissions)) {
+        $this->adminPermissions[] = $perm;
+      }
+    }
+
+    if (!empty($this->questionHandlers)) {
+      foreach ($this->questionHandlers as $name) {
+        $this->adminPermissions[] = "create default_{$name} question";
+        $this->adminPermissions[] = "edit any default_{$name} question";
+      }
+    }
+
+    $this->userPermissions[] = 'access quiz';
+    foreach ($this->extraUserPermissions as $perm) {
+      if (!in_array($perm, $this->userPermissions)) {
+        $this->userPermissions[] = $perm;
+      }
+    }
+
+    $this->admin = $this->createAdminAccount();
+    $this->user = $this->createNormalAccount();
+  }
+
+  protected function createAdminAccount() {
+    return $this->drupalCreateUser(array_unique($this->adminPermissions));
+  }
+
+  protected function createNormalAccount() {
+    return $this->drupalCreateUser(array_unique($this->userPermissions));
+  }
+
+  /**
+   * Add text formats.
+   */
+  private function setUpFilters() {
+    $filtered_html_format = (object) array(
+          'format'  => 'filtered_html',
+          'name'    => 'Filtered HTML',
+          'weight'  => 0,
+          'filters' => array(
+              'filter_url'           => array('weight' => 0, 'status' => 1), // URL filter
+              'filter_html'          => array('weight' => 1, 'status' => 1), // HTML filter
+              'filter_autop'         => array('weight' => 2, 'status' => 1), // Line break filter
+              'filter_htmlcorrector' => array('weight' => 10, 'status' => 1), // HTML corrector filter
+          ),
+    );
+    filter_format_save($filtered_html_format);
+
+    $full_html_format = (object) array(
+          'format'  => 'full_html',
+          'name'    => 'Full HTML',
+          'weight'  => 1,
+          'filters' => array(
+              'filter_url'           => array('weight' => 0, 'status' => 1), // URL filter
+              'filter_autop'         => array('weight' => 1, 'status' => 1), // Line break filter
+              'filter_htmlcorrector' => array('weight' => 10, 'status' => 1), // HTML corrector filter
+          ),
+    );
+    filter_format_save($full_html_format);
+
+    // Enable default permissions for system roles.
+    $filtered_html_permission = filter_permission_name($filtered_html_format);
+    user_role_grant_permissions(DRUPAL_ANONYMOUS_RID, array($filtered_html_permission));
+    user_role_grant_permissions(DRUPAL_AUTHENTICATED_RID, array($filtered_html_permission));
+  }
+
+  /**
+   * Link a question to a new or provided quiz.
+   *
+   * @param Question $question
+   * @param QuizEntity|null $quiz
+   * @return QuizEntity
+   */
+  public function linkQuestionToQuiz(Question $question, QuizEntity $quiz = NULL) {
+    if (is_null($quiz)) {
+      $quiz = $this->drupalCreateQuiz();
+    }
+    $question->getHandler()->saveRelationships($quiz->qid, $quiz->vid);
+    return $quiz;
+  }
+
+  /**
+   * @return QuizEntity
+   */
+  public function drupalCreateQuiz($settings = array()) {
+    $quiz = entity_create('quiz_entity', $settings + array(
+        'type'           => 'quiz',
+        'review_options' => array(
+            'end' => drupal_map_assoc(array_keys(quizz_entity_controller()->getFeedbackOptions()))
+        ),
+    ));
+    $quiz->save();
+    return $quiz;
+  }
+
+  /**
+   * Create question entity.
+   *
+   * @param array $values
+   * @return Question
+   */
+  protected function drupalCreateQuestion(array $values) {
+    $values['type'] = 'default_' . $values['type'];
+
+    // Fix legacy
+    if (isset($values['body'])) {
+      if (is_string($values['body'])) {
+        $values['body'] = array(LANGUAGE_NONE => array(array('value' => $values['body'])));
+      }
+
+      $values['quiz_question_body'] = $values['body'];
+      unset($values['body']);
+    }
+
+    $question = entity_create('quiz_question_entity', $values);
+
+    if (isset($values['quizz_question_category']) && !is_array($values['quizz_question_category'])) {
+      $question->quizz_question_category = array('und' => array(array('tid' => $values['quizz_question_category'])));
+    }
+
+    $question->save();
+    return $question;
+  }
+
+  public function quizDeleteAllResults() {
+    db_query('DELETE FROM {quiz_results}');
+  }
+
+  /**
+   * Get latest quiz ID, useful for test cases.
+   *
+   * @return int|null
+   */
+  protected function getLatestQuizId() {
+    return db_select('quiz_entity', 'quiz')
+        ->fields('quiz', array('qid'))
+        ->orderBy('quiz.qid', 'DESC')
+        ->execute()
+        ->fetchColumn();
+  }
+
+}

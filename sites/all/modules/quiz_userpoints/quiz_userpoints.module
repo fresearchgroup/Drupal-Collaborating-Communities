@@ -1,0 +1,373 @@
+<?php
+/*
+ * @file
+ * module file for quiz_userpoints quiz module.
+ */
+
+/**
+ * Implements hook_form_alter().
+ * This is an admin form used to build a new quiz. It is called as part of the
+ * node edit form.
+ */
+function quiz_userpoints_form_alter(&$form, &$form_state, $form_id) {
+  if ($form_id == 'quiz_node_form' && isset($form['menu']['#weight'])) {
+    $form['userpoints'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Userpoints'),
+      '#collapsible' => TRUE,
+      '#collapsed' => FALSE,
+      '#group' => 'additional_settings',
+      '#tree' => TRUE,
+    );
+
+    $form['userpoints']['items'] = array(
+      '#type' => 'item',
+      '#prefix' => '<div id="userpoints-integration-wrapper">',
+      '#suffix' => '</div>',
+    );
+
+    if (!isset($form_state['userpoints_items'])) {
+      if (!empty($form['#entity']->userpoints['items'])) {
+        $form_state['userpoints_items'] = $form['#entity']->userpoints['items'];
+      }
+      else {
+        $form_state['userpoints_items'] = array();
+      }
+    }
+    if (module_exists('token')) {
+      $tokens_markup = theme('token_tree', array('dialog' => TRUE, 'token_types' => array('global', 'node', 'user', 'quiz_result')));
+    }
+    foreach ($form_state['userpoints_items'] as $i => $item) {
+      $form['userpoints']['items'][$i] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Userpoints integration'),
+        '#collapsible' => TRUE,
+        '#collapsed' => FALSE,
+      );
+      $form['userpoints']['items'][$i]['has_userpoints'] = array(
+        '#type' => 'checkbox',
+        '#default_value' => (isset($item['has_userpoints']) ? $item['has_userpoints'] : 0),
+        '#title' => t('Enable'),
+        '#description' => t('If checked, marks scored in this @quiz will be credited to userpoints.', array('@quiz' => QUIZ_NAME)),
+      );
+      $form['userpoints']['items'][$i]['has_userpoints']['#attributes']['class'][] = 'has_userpoints_' . $i;
+
+      $states = array(
+        'visible' => array(
+          'input.has_userpoints_' . $i => array('checked' => TRUE),
+        ),
+      );
+
+      $form['userpoints']['items'][$i]['userpoints_tid'] = array(
+        '#type' => 'select',
+        '#options' => userpoints_get_categories(),
+
+        '#title' => t('Userpoints Category'),
+        '#states' => $states,
+        '#default_value' => (!empty($item['userpoints_tid']) ? $item['userpoints_tid'] : variable_get(USERPOINTS_CATEGORY_DEFAULT_TID, 0)),
+        '#description' => t('Select the category to which user points to be added. To add new category see <a href="!url">admin/structure/taxonomy/userpoints</a>', array('!url' => url('admin/structure/taxonomy/userpoints'))),
+      );
+
+      $form['userpoints']['items'][$i]['award_mode'] = array(
+        '#type' => 'select',
+        '#options' => array(
+          0 => t('Every time'),
+          1 => t('Only when quiz is passed'),
+        ),
+        '#title' => t('Award mode'),
+        '#states' => $states,
+        '#default_value' => (!empty($item['award_mode']) ? $item['award_mode'] : 0),
+        '#description' => t('Select score award mode.'),
+      );
+
+      $form['userpoints']['items'][$i]['award_once'] = array(
+        '#type' => 'checkbox',
+        '#default_value' => (isset($item['award_once']) ? $item['award_once'] : 0),
+        '#title' => t('Award once'),
+        '#states' => $states,
+        '#description' => t('If checked, userpoints for this @quiz will be scored once.', array('@quiz' => QUIZ_NAME)),
+      );
+
+      $form['userpoints']['items'][$i]['score_type'] = array(
+        '#type' => 'select',
+        '#options' => array(
+          0 => t('Numeric'),
+          1 => t('Percentage'),
+          2 => t('Own value'),
+        ),
+        '#title' => t('Score type'),
+        '#states' => $states,
+        '#default_value' => (!empty($item['score_type']) ? $item['score_type'] : 0),
+        '#description' => t('Select award score type.'),
+      );
+      $form['userpoints']['items'][$i]['score_type']['#attributes']['class'][] = 'score_type_' . $i;
+
+      $form['userpoints']['items'][$i]['own_value'] = array(
+        '#type' => 'textfield',
+        '#default_value' => (isset($item['own_value']) ? $item['own_value'] : 0),
+        '#title' => t('Own value'),
+        '#states' => array(
+          'visible' => array(
+            'select.score_type_' . $i => array('value' => 2),
+          ),
+        ),
+        '#description' => t('When user passed this @quiz, will get filled value of points.', array('@quiz' => QUIZ_NAME)),
+        '#element_validate' => array('element_validate_number'),
+      );
+
+      $form['userpoints']['items'][$i]['description'] = array(
+        '#type' => 'textfield',
+        '#default_value' => (isset($item['description']) ? $item['description'] : t('Attended [node:title] on [date:short]')),
+        '#title' => t('Award description'),
+        '#states' => $states,
+      );
+
+      if (isset($tokens_markup)) {
+        // Embed token help.
+        $form['userpoints']['items'][$i]['tokens'] =array(
+          '#markup' => $tokens_markup,
+          '#states' => $states,
+          '#prefix' => '<div>',
+          '#suffix' => '</div>',
+        );
+      }
+
+      $form['userpoints']['items'][$i]['remove'] = array(
+        '#type' => 'submit',
+        '#value' => t('Remove'),
+        '#name' => 'userpoints_remove_' . $i,
+        '#submit' => array('_quiz_userpoints_remove'),
+        '#ajax' => array(
+          'callback' => '_quiz_userpoints_ajax_callback',
+          'wrapper' => 'userpoints-integration-wrapper',
+        ),
+        '#weight' => 100,
+      );
+
+    }
+
+    $form['userpoints']['add_more'] = array(
+      '#type' => 'submit',
+      '#value' => t('Add'),
+      '#submit' => array('_quiz_userpoints_add'),
+      '#ajax' => array(
+        'callback' => '_quiz_userpoints_ajax_callback',
+        'wrapper' => 'userpoints-integration-wrapper',
+      ),
+    );
+  }
+}
+
+/**
+ * Submit handler for the "add-more" button.
+ *
+ * Add new variable and causes a rebuild.
+ */
+function _quiz_userpoints_add($form, &$form_state) {
+  $form_state['userpoints_items'][] = array(
+    'has_userpoints' => 1,
+    'userpoints_tid' => variable_get(USERPOINTS_CATEGORY_DEFAULT_TID, 0),
+  );
+  $form_state['rebuild'] = TRUE;
+}
+
+/**
+ * Submit handler for the "remove" button.
+ *
+ * Remove variable and causes a rebuild.
+ */
+function _quiz_userpoints_remove($form, &$form_state) {
+  $index = (int) str_replace('userpoints_remove_','',$form_state['triggering_element']['#name']);
+  if (isset($form_state['userpoints_items'][$index])) {
+    unset($form_state['userpoints_items'][$index]);
+  }
+
+  $form_state['rebuild'] = TRUE;
+}
+
+/**
+ * Callback for both ajax-enabled buttons.
+ *
+ * Selects and returns the fieldset with the names in it.
+ */
+function _quiz_userpoints_ajax_callback($form, $form_state) {
+  return $form['userpoints']['items'];
+}
+
+/**
+ * Implements hook_quiz_result_update().
+ *
+ * Performs actions like sending quiz results over email at the end of quiz.
+ */
+function quiz_userpoints_quiz_result_update($quiz_result) {
+  // @TODO convert to entity/rules
+
+  global $user;
+  $quiz = node_load($quiz_result->nid);
+
+  $token_types = array(
+    'global' => NULL,
+    'node' => $quiz,
+    'user' => $user,
+    'quiz_result' => $quiz_result,
+  );
+
+  //Looking up the title and has_userpoints flag of the current quiz.
+  if ($quiz_result->uid != 0 && $quiz_result->is_evaluated && !empty($quiz->userpoints['items'])) {
+    $items = $quiz->userpoints['items'];
+    $score = quiz_calculate_score($quiz_result->result_id);
+    $userpoints_items = array();
+
+    // Prepare userpoint items.
+    foreach ($items as $i => $item) {
+      if (empty($item['has_userpoints'])) {
+        // Disabled.
+        continue;
+      }
+
+      if (!empty($item['award_mode']) && $score['percentage_score'] < $quiz->quiz->pass_rate) {
+        // Award only when user pass the quiz.
+        continue;
+      }
+      if (!empty($item['award_once'])) {
+        $points = _quiz_userpoints_find_points($user->uid, $item['userpoints_tid'], $quiz->nid, $quiz->type);
+        if (!empty($points)) {
+          // Award once quiz.
+          continue;
+        }
+      }
+      $userpoints_item = $item;
+
+      switch ($item['score_type']) {
+        case 0:
+          $userpoints_item['score'] = $score['numeric_score'];
+          break;
+        case 1:
+          $userpoints_item['score'] = $score['percentage_score'];
+          break;
+        default:
+          $userpoints_item['score'] = $item['own_value'];
+      }
+
+      $userpoints_item['entity_id'] = $quiz->nid;
+      $userpoints_item['entity_type'] = $quiz->type;
+      $userpoints_item['uid'] = $quiz_result->uid;
+      $userpoints_items[] = $userpoints_item;
+    }
+
+    // Call hook alter userpoints items().
+    drupal_alter('quiz_userpoints_items', $quiz, $quiz_result, $score, $userpoints_items);
+
+    // Calls userpoints functions to credit user point.
+    foreach ($userpoints_items as $i => $userpoints_item) {
+      $params = array(
+        'points' => $userpoints_item['score'],
+        'description' => token_replace($userpoints_item['description'], $token_types),
+        'uid' => $userpoints_item['uid'],
+        'entity_id' => $userpoints_item['entity_id'],
+        'entity_type' => $userpoints_item['entity_type'],
+        'tid' => $userpoints_item['userpoints_tid'],
+      );
+
+      userpoints_userpointsapi($params);
+    }
+  }
+}
+
+/**
+ * Helper function. Get current points of a user.
+ */
+function _quiz_userpoints_find_points($uid = NULL, $tid = NULL, $entity_id = NULL, $entity_type = NULL) {
+  if (!$uid) {
+    global $user;
+    $uid = $user->uid;
+  }
+
+  $query = db_select('userpoints_txn', 'upt')
+    ->fields('upt', array('points'))
+    ->condition('upt.uid', $uid)
+    ->condition('upt.expired', 0)
+    ->condition('upt.status', 2, '<');
+
+  if (!empty($tid)) {
+    $query->condition('upt.tid', $tid);
+  }
+
+  if (!empty($entity_id)) {
+    $query->condition('upt.entity_id', $entity_id);
+  }
+
+  if (!empty($entity_type)) {
+    $query->condition('upt.entity_type', $entity_type);
+  }
+
+  return $query->execute()->fetchAll();
+}
+
+/**
+ * Implements hook_entity_load().
+ */
+function quiz_userpoints_entity_load($entities, $type) {
+  $fields = array('userpoints_idx', 'has_userpoints', 'userpoints_tid', 'award_mode', 'award_once', 'score_type', 'description', 'own_value');
+
+  foreach ($entities as $entity) {
+    if (isset($entity->type) && $entity->type == 'quiz') {
+      $result = db_select('quiz_userpoints_properties', 'qup')
+        ->fields('qup', $fields)
+        ->orderBy('userpoints_idx', 'ASC')
+        ->condition('qup.nid', $entity->nid)
+        ->condition('qup.vid', $entity->vid)
+        ->execute();
+      foreach ($result as $i => $data) {
+        // Attach userpoints item data,
+        foreach ($fields as $field) {
+          $entity->userpoints['items'][$data->userpoints_idx][$field] = $data->$field;
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_entity_presave().
+ */
+function quiz_userpoints_entity_presave($entity, $type) {
+  if (isset($entity->type) && $entity->type == 'quiz' && isset($entity->nid)) {
+    if (isset($entity->original) && !empty($entity->original->userpoints['items']) && $entity->vid == $entity->original->vid) {
+      foreach($entity->original->userpoints['items'] as $i => $item) {
+        if (!isset($entity->userpoints['items'][$i])) {
+          // Delete removed userpoints item.
+          db_delete('quiz_userpoints_properties')
+            ->condition('nid', $entity->nid)
+            ->condition('vid', $entity->vid)
+            ->condition('userpoints_idx', $item['userpoints_idx'])
+            ->execute();
+        }
+      }
+    }
+
+    if (!empty($entity->userpoints['items'])) {
+      foreach($entity->userpoints['items'] as $i => $item) {
+        if (is_array($item)) {
+          // Save userpoints item.
+          db_merge('quiz_userpoints_properties')
+            ->key(array(
+              'nid' => $entity->nid,
+              'vid' => $entity->vid,
+              'userpoints_idx' => $i,
+            ))
+            ->fields(array(
+              'has_userpoints' => $item['has_userpoints'],
+              'userpoints_tid' => $item['userpoints_tid'],
+              'award_mode' => $item['award_mode'],
+              'award_once' => $item['award_once'],
+              'score_type' => $item['score_type'],
+              'description' => $item['description'],
+              'own_value' => $item['own_value'],
+            ))
+            ->execute();
+        }
+      }
+    }
+  }
+}

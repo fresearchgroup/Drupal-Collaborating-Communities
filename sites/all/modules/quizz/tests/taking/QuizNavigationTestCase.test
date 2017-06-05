@@ -1,0 +1,173 @@
+<?php
+
+/**
+ * Base test class for Quiz questions.
+ */
+class QuizNavigationTestCase extends QuizTestCase {
+
+  protected $extraModules = array('quizz_truefalse');
+  protected $questionHandlers = array('truefalse');
+
+  public static function getInfo() {
+    return array(
+        'name'        => 'Quiz navigation',
+        'description' => 'Test cases for Quiz navigation.',
+        'group'       => 'Quiz taking',
+    );
+  }
+
+  /**
+   * Test the question navigation and access.
+   */
+  public function testQuestionNavigationBasic() {
+    $quiz = $this->drupalCreateQuiz();
+
+    $question_1 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $question_2 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $question_3 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $this->linkQuestionToQuiz($question_1, $quiz);
+    $this->linkQuestionToQuiz($question_2, $quiz);
+    $this->linkQuestionToQuiz($question_3, $quiz);
+
+    // Testing basic navigation. Ensure next questions are not yet available.
+    $this->drupalLogin($this->user);
+    $this->drupalGet("quiz/{$quiz->qid}/take");
+    $this->drupalGet("quiz/{$quiz->qid}/take/1");
+    $this->assertResponse(200);
+    $this->drupalGet("quiz/{$quiz->qid}/take/2");
+    $this->assertResponse(403);
+    $this->drupalGet("quiz/{$quiz->qid}/take/3");
+    $this->assertResponse(403);
+
+    // Answer a question, ensure next question is available.
+    $this->drupalGet("quiz/{$quiz->qid}/take/1");
+    $this->drupalPost(NULL, array("question[$question_1->qid][answer]" => 1), t('Next'));
+    $this->drupalGet("quiz/{$quiz->qid}/take/2");
+    $this->assertResponse(200);
+    $this->drupalGet("quiz/{$quiz->qid}/take/3");
+    $this->assertResponse(403);
+  }
+
+  /**
+   * Test that all questions are available when quiz jumping is on.
+   */
+  function testQuestionNavigationJumping() {
+    $quiz = $this->drupalCreateQuiz(array('allow_jumping' => 1));
+
+    // 5 questions.
+    $question_1 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $question_2 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $question_3 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $question_4 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $question_5 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $this->linkQuestionToQuiz($question_1, $quiz);
+    $this->linkQuestionToQuiz($question_2, $quiz);
+    $this->linkQuestionToQuiz($question_3, $quiz);
+    $this->linkQuestionToQuiz($question_4, $quiz);
+    $this->linkQuestionToQuiz($question_5, $quiz);
+
+    // Testing jumpable navigation.
+    $this->drupalLogin($this->user);
+    $this->drupalGet("quiz/{$quiz->qid}/take");
+    $this->drupalGet("quiz/{$quiz->qid}/take/1");
+    $this->assertResponse(200);
+    $this->drupalGet("quiz/{$quiz->qid}/take/2");
+    $this->assertResponse(200);
+    $this->drupalGet("quiz/{$quiz->qid}/take/3");
+    $this->assertResponse(200);
+
+    // We should have a selectbox right now.
+    $this->drupalGet("quiz/{$quiz->qid}/take");
+    $this->assertFieldById('edit-question-number', NULL);
+    // Check that the "first" pager link does not appear.
+    $this->assertNoLinkByHref("quiz/{$quiz->qid}/take/1");
+
+    // Test the switch between select/pager.
+    $quiz->getQuizType()->setConfig('quiz_pager_start', 5)->save();
+
+    // One on each side.
+    $quiz->getQuizType()->setConfig('quiz_pager_siblings', 2)->save();
+
+    $this->drupalGet("quiz/{$quiz->qid}/take/3");
+    $this->assertNoFieldById('edit-question-number');
+    $this->assertNoLink('1');
+    $this->assertLinkByHref("quiz/{$quiz->qid}/take/2");
+    $this->assertNoLinkByHref("quiz/{$quiz->qid}/take/3");
+    $this->assertLinkByHref("quiz/{$quiz->qid}/take/4");
+    $this->assertNoLink('5');
+  }
+
+  /**
+   * Test that a user can skip a question.
+   */
+  function testQuestionNavigationSkipping() {
+    // Default behavior, anyway.
+    $quiz = $this->drupalCreateQuiz(array('allow_skipping' => 1));
+
+    // 3 questions.
+    $question_1 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $question_2 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $question_3 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $this->linkQuestionToQuiz($question_1, $quiz);
+    $this->linkQuestionToQuiz($question_2, $quiz);
+    $this->linkQuestionToQuiz($question_3, $quiz);
+
+    // Ensure next questions are blocked until skipped.
+    $this->drupalLogin($this->user);
+    $this->drupalGet("quiz/{$quiz->qid}/take");
+    $this->drupalGet("quiz/{$quiz->qid}/take/1");
+    $this->assertResponse(200);
+    $this->drupalGet("quiz/{$quiz->qid}/take/2");
+    $this->assertResponse(403);
+    $this->drupalGet("quiz/{$quiz->qid}/take/3");
+    $this->assertResponse(403);
+
+    // Leave a question blank.
+    $this->drupalGet("quiz/{$quiz->qid}/take/1");
+    $this->drupalPost(NULL, array(), t('Leave blank'));
+    // Now question 2 is accessible.
+    $this->drupalGet("quiz/{$quiz->qid}/take/2");
+    $this->assertResponse(200);
+    $this->drupalGet("quiz/{$quiz->qid}/take/3");
+    $this->assertResponse(403);
+  }
+
+  /**
+   * Test preventing backwards navigation of questions.
+   */
+  function testQuestionNavigationBackwards() {
+    $quiz = $this->drupalCreateQuiz(array(
+        'backwards_navigation' => 0,
+        'allow_skipping'       => 0,
+        'allow_jumping'        => 0,
+    ));
+
+    // 3 questions.
+    $question_1 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $question_2 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $question_3 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $this->linkQuestionToQuiz($question_1, $quiz);
+    $this->linkQuestionToQuiz($question_2, $quiz);
+    $this->linkQuestionToQuiz($question_3, $quiz);
+
+    // Testing basic navigation.
+    $this->drupalLogin($this->user);
+    $this->drupalGet("quiz/{$quiz->qid}/take");
+    $this->drupalGet("quiz/{$quiz->qid}/take/1");
+    $this->assertResponse(200);
+    $this->drupalGet("quiz/{$quiz->qid}/take/2");
+    $this->assertResponse(403);
+    $this->drupalGet("quiz/{$quiz->qid}/take/3");
+    $this->assertResponse(403);
+
+    // Answer a question, ensure next question is available. Ensure previous
+    // question is not.
+    $this->drupalGet("quiz/{$quiz->qid}/take/1");
+    $this->drupalPost(NULL, array("question[$question_1->qid][answer]" => 1), t('Next'));
+    $this->drupalGet("quiz/{$quiz->qid}/take/2");
+    $this->assertResponse(200);
+    $this->drupalGet("quiz/{$quiz->qid}/take/1");
+    $this->assertResponse(403);
+  }
+
+}

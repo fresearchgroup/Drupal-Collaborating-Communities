@@ -1,0 +1,20 @@
+# Telugu translation of Apachesolr Sort (7.x-1.0)
+# Copyright (c) 2013 by the Telugu translation team
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Apachesolr Sort (7.x-1.0)\n"
+"POT-Creation-Date: 2013-08-07 21:14+0000\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Language-Team: Telugu\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+
+msgid "Ascending"
+msgstr "ఆరోహణ"
+msgid "Descending"
+msgstr "అవరోహణ"
+msgid "Direction"
+msgstr "దిశ"

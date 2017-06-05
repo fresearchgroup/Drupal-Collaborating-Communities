@@ -1,0 +1,54 @@
+name = Quiz
+version = 7.x-6.x
+package = Quiz Core
+description = Create interactive quizzes. This module must have at least one question type module enabled in order to function properly.
+core = 7.x
+
+dependencies[] = ctools
+dependencies[] = entity
+dependencies[] = filter
+dependencies[] = quizz_question
+dependencies[] = taxonomy
+dependencies[] = views
+dependencies[] = views_bulk_operations
+dependencies[] = xautoload
+
+test_dependencies[] = taxonomy
+test_dependencies[] = views
+
+stylesheets[all][] = misc/quizz.css
+
+files[] = includes/views/handlers/quiz_views_handler_argument_quiz_qid.inc
+files[] = includes/views/handlers/quiz_views_handler_argument_user_uid_nullable.inc
+files[] = includes/views/handlers/quiz_views_handler_field_number_questions.inc
+files[] = includes/views/handlers/quiz_views_handler_field_question_status.inc
+files[] = includes/views/handlers/quiz_views_handler_field_score_aggregate.inc
+files[] = includes/views/handlers/quiz_views_handler_field_takes.inc
+files[] = includes/views/handlers/quiz_views_handler_field_quiz_link_take.inc
+files[] = includes/views/handlers/quiz_views_handler_field_time.inc
+files[] = includes/views/handlers/quiz_views_handler_field_user_quiz_state.inc
+files[] = includes/views/handlers/quiz_views_handler_filter_question_status.inc
+files[] = includes/views/handlers/quiz_views_handler_filter_quiz_qid.inc
+files[] = includes/views/handlers/quiz_views_handler_filter_user_nullable.inc
+files[] = includes/views/handlers/quiz_views_handler_filter_user_quiz_state.inc
+files[] = includes/views/handlers/quiz_views_handler_relationship_quiz_qid.inc
+files[] = includes/views/handlers/quiz_views_handler_filter_quiz_question_type.inc
+files[] = includes/views/handlers/quiz_views_handler_filter_quiz_question.inc
+
+files[] = tests/QuizTestCase.test
+files[] = tests/QuizEntityTestCase.test
+files[] = tests/QuizFeedbackTestCase.test
+files[] = tests/QuizRandomTestCase.test
+files[] = tests/QuizResultTestCase.test
+files[] = tests/QuizAnswerTestCase.test
+files[] = tests/QuizUpgradeTestCase.test
+files[] = tests/taking/QuizNavigationTestCase.test
+files[] = tests/taking/QuizTakingTestCase.test
+files[] = tests/taking/QuizTimerTestCase.test
+
+; Information added by Drupal.org packaging script on 2015-01-13
+version = "7.x-6.0-beta1"
+core = "7.x"
+project = "quizz"
+datestamp = "1421118793"
+

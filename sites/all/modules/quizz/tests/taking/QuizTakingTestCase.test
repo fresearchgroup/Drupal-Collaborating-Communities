@@ -1,0 +1,191 @@
+<?php
+
+class QuizTakingTestCase extends QuizTestCase {
+
+  protected $extraModules = array('quizz_truefalse');
+  protected $questionHandlers = array('truefalse');
+
+  public static function getInfo() {
+    return array(
+        'name'        => 'Quiz taking',
+        'description' => 'Test cases for Quiz take behaviors.',
+        'group'       => 'Quiz taking',
+    );
+  }
+
+  /**
+   * Test the repeat until correct behavior. We do not have to test what type
+   * of feedback shows here, that is tested elsewhere.
+   */
+  public function testQuestionRepeatUntilCorrect() {
+    $quiz = $this->drupalCreateQuiz(array(
+        'repeat_until_correct' => 1,
+        'review_options'       => array('question' => array('answer_feedback' => 'answer_feedback')),
+    ));
+
+    $question = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $this->linkQuestionToQuiz($question, $quiz);
+
+    $this->drupalLogin($this->user);
+    $this->drupalGet("quiz/{$quiz->qid}/take");
+    $this->drupalPost(NULL, array("question[$question->qid][answer]" => 0), t('Finish'));
+    $this->assertText('The answer was incorrect. Please try again.');
+
+    // Check that we are still on the question.
+    $this->assertUrl("quiz/{$quiz->qid}/take/1");
+    $this->drupalPost(NULL, array("question[$question->qid][answer]" => 1), t('Finish'));
+    $this->assertNoText('The answer was incorrect. Please try again.');
+  }
+
+  /**
+   * Test the quiz resuming from database.
+   */
+  public function testQuizResuming() {
+    // Resuming is default behavior.
+    $quiz = $this->drupalCreateQuiz(array('allow_resume' => 1));
+
+    // 2 questions.
+    $question_1 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $question_2 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $this->linkQuestionToQuiz($question_1, $quiz);
+    $this->linkQuestionToQuiz($question_2, $quiz);
+
+    // Answer a question. Ensure the question navigation restrictions are
+    // maintained.
+    $this->drupalLogin($this->user);
+    $this->drupalGet("quiz/{$quiz->qid}/take");
+    $this->drupalGet("quiz/{$quiz->qid}/take/2");
+    $this->assertResponse(403);
+    $this->drupalGet("quiz/{$quiz->qid}/take/1");
+    $this->drupalPost(NULL, array("question[$question_1->qid][answer]" => 1), t('Next'));
+
+    // Login again.
+    $this->drupalLogin($this->user);
+    $this->drupalGet("quiz/{$quiz->qid}/take");
+    $this->assertText('Resuming');
+
+    // Assert 2nd question is accessible (indicating the answer to #1 was saved.)
+    $this->drupalGet("quiz/{$quiz->qid}/take/2");
+    $this->assertResponse(200);
+  }
+
+  /**
+   * Test the quiz not resuming from database.
+   */
+  public function testQuizNoResuming() {
+    // Resuming is default behavior.
+    $quiz = $this->drupalCreateQuiz(array('allow_resume' => 0));
+
+    // 2 questions.
+    $question_1 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $question_2 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $this->linkQuestionToQuiz($question_1, $quiz);
+    $this->linkQuestionToQuiz($question_2, $quiz);
+
+    // Answer a question. Ensure the question navigation restrictions are
+    // maintained.
+    $this->drupalLogin($this->user);
+    $this->drupalGet("quiz/{$quiz->qid}/take");
+    $this->drupalGet("quiz/{$quiz->qid}/take/2");
+    $this->assertResponse(403);
+    $this->drupalGet("quiz/{$quiz->qid}/take/1");
+    $this->drupalPost(NULL, array("question[$question_1->qid][answer]" => 1), t('Next'));
+
+    // Login again.
+    $this->drupalLogin($this->user);
+    $this->drupalGet("quiz/{$quiz->qid}/take");
+    $this->assertNoText('Resuming');
+
+    // Assert 2nd question is not accessible (indicating the answer to #1 was not saved.)
+    $this->drupalGet("quiz/{$quiz->qid}/take/2");
+    $this->assertResponse(403);
+  }
+
+  /**
+   * Test the quiz availability tests.
+   */
+  public function testQuizAvailability() {
+    $this->drupalLogin($this->user);
+
+    $future = REQUEST_TIME + 86400;
+    $past = REQUEST_TIME - 86400;
+
+    // Within range.
+    $quiz_1 = $this->drupalCreateQuiz(array('quiz_always' => 0, 'quiz_open' => $past, 'quiz_close' => $future));
+    $this->drupalGet("quiz/{$quiz_1->qid}");
+    $this->assertNoText(t('This @quiz is closed.', array('@quiz' => QUIZZ_NAME)));
+
+    // Starts in the future.
+    $quiz_2 = $this->drupalCreateQuiz(array('quiz_always' => 0, 'quiz_open' => $future, 'quiz_close' => $future + 1));
+    $this->drupalGet("quiz/{$quiz_2->qid}");
+    $this->assertText(t('This @quiz is closed.', array('@quiz' => QUIZZ_NAME)));
+
+    // Ends in the past.
+    $quiz_3 = $this->drupalCreateQuiz(array('quiz_always' => 0, 'quiz_open' => $past, 'quiz_close' => $past + 1));
+    $this->drupalGet("quiz/{$quiz_3->qid}");
+    $this->assertText(t('This @quiz is closed.', array('@quiz' => QUIZZ_NAME)));
+
+    // Always available.
+    $quiz_4 = $this->drupalCreateQuiz(array('quiz_always' => 1, 'quiz_open' => $future, 'quiz_close' => $past));
+    $this->drupalGet("quiz/{$quiz_4->qid}");
+    $this->assertNoText(t('This @quiz is closed.', array('@quiz' => QUIZZ_NAME)));
+  }
+
+  /**
+   * Test the 'view quiz question outside of a quiz' permission.
+   */
+  function testViewQuestionsOutsideQuiz() {
+    // Resuming is default behavior.
+    $quiz = $this->drupalCreateQuiz();
+
+    $question_1 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $this->linkQuestionToQuiz($question_1, $quiz);
+
+    $this->drupalLogin($this->user);
+    $this->drupalGet("quiz-question/{$question_1->qid}");
+    $this->assertResponse(403);
+
+    $user_with_privs = $this->drupalCreateUser(array('view quiz question outside of a quiz', 'access quiz'));
+    $this->drupalLogin($user_with_privs);
+    $this->drupalGet("quiz-question/{$question_1->qid}");
+    $this->assertResponse(200);
+  }
+
+  /**
+   * Test allow/restrict changing of answers.
+   */
+  public function testChangeAnswer() {
+    $quiz = $this->drupalCreateQuiz(array('review_options' => array('question' => array('score' => 'score'))));
+
+    $question_1 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $question_2 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $question_3 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $this->linkQuestionToQuiz($question_1, $quiz);
+    $this->linkQuestionToQuiz($question_2, $quiz);
+    $this->linkQuestionToQuiz($question_3, $quiz);
+
+    $this->drupalLogin($this->user);
+    $this->drupalGet("quiz/{$quiz->qid}/take");
+    $this->drupalGet("quiz/{$quiz->qid}/take/1");
+    $this->drupalPost(NULL, array("question[$question_1->qid][answer]" => 0), t('Next'));
+    $this->assertText('Score: 0 of 1');
+
+    // Go back and correct the answer.
+    $this->drupalGet("quiz/{$quiz->qid}/take/1");
+    $this->drupalPost(NULL, array("question[$question_1->qid][answer]" => 1), t('Next'));
+    $this->assertText('Score: 1 of 1');
+
+    // Restrict change after answer.
+    $quiz->allow_change = 0;
+    $quiz->save();
+
+    // Check that the answer cannot be changed.
+    $this->drupalGet("quiz/{$quiz->qid}/take/1");
+    $xpath = '//input[@id=:id and @disabled="disabled"]';
+    $disabled_field = $this->xpath($xpath, array(':id' => 'edit-question-1-answer-1'));
+    $this->assertTrue($disabled_field, t('The answer cannot be changed.'));
+    $this->drupalPost(NULL, array(), t('Next'));
+    $this->assertText('Score: 1 of 1');
+  }
+
+}

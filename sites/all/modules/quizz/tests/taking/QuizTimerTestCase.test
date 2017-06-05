@@ -1,0 +1,51 @@
+<?php
+
+class QuizTimerTestCase extends QuizTestCase {
+
+  protected $extraModules = array('quizz_truefalse');
+  protected $questionHandlers = array('truefalse');
+
+  public static function getInfo() {
+    return array(
+        'name'        => 'Quiz timer',
+        'description' => 'Test cases for Quiz and question timer behaviors.',
+        'group'       => 'Quiz taking',
+    );
+  }
+
+  /**
+   * Test quiz timer expiration.
+   */
+  function testQuizTimer() {
+    // Set up a quiz to show us feedback, 30 second expiration.
+    $quiz = $this->drupalCreateQuiz(array(
+        'review_options' => array('end' => array('score' => 'score')),
+        'time_limit'     => 30,
+    ));
+
+    $question_1 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $question_2 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $question_3 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $this->linkQuestionToQuiz($question_1, $quiz);
+    $this->linkQuestionToQuiz($question_2, $quiz);
+    $this->linkQuestionToQuiz($question_3, $quiz);
+
+    // Record 2 answers before expiration.
+    $this->drupalLogin($this->user);
+    $this->drupalGet("quiz/{$quiz->qid}/take");
+    $this->drupalGet("quiz/{$quiz->qid}/take/1");
+    $this->drupalPost(NULL, array("question[$question_1->qid][answer]" => 1), t('Next'));
+    $this->assertNoText(t('The last answer was not submitted, as the time ran out.'));
+    $this->drupalPost(NULL, array("question[$question_2->qid][answer]" => 1), t('Next'));
+    $this->assertNoText(t('The last answer was not submitted, as the time ran out.'));
+
+    // Set the quiz result to have started 31 seconds ago.
+    db_query('UPDATE {quiz_results} SET time_start = :time', array(':time' => REQUEST_TIME - 31));
+
+    // Submit the last question past the expiration.
+    $this->drupalPost(NULL, array("question[$question_3->qid][answer]" => 1), t('Finish'));
+    $this->assertText(t('The last answer was not submitted, as the time ran out.'));
+    $this->assertText('You got 2 of 3 possible points.');
+  }
+
+}

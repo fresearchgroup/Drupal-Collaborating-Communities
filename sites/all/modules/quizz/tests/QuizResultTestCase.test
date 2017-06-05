@@ -1,0 +1,336 @@
+<?php
+
+use Drupal\quizz\Entity\QuizEntity\ResultGenerator;
+
+class QuizResultTestCase extends QuizTestCase {
+
+  protected $extraModules = array('quizz_truefalse', 'text');
+  protected $questionHandlers = array('truefalse');
+
+  public static function getInfo() {
+    return array(
+        'name'        => 'Quiz results',
+        'description' => 'Test cases for Quiz results.',
+        'group'       => 'Quiz result',
+    );
+  }
+
+  /**
+   * Test the various result summaries and pass rate.
+   */
+  public function testPassRateSummary() {
+    // By default, the feedback is after the quiz.
+    $quiz = $this->drupalCreateQuiz(array(
+        'pass_rate'              => 75,
+        'summary_pass'           => 'This is the summary if passed',
+        'summary_pass_format'    => 'plain_text',
+        'summary_default'        => 'This is the default summary text',
+        'summary_default_format' => 'plain_text',
+        'result_options'         => array(
+            array(
+                'option_name'           => '90 and higher',
+                'option_summary'        => 'You got 90 or more on the quiz',
+                'option_summary_format' => 'filtered_html',
+                'option_start'          => 90,
+                'option_end'            => 100,
+            ),
+            array(
+                'option_name'           => '50 and higher',
+                'option_summary'        => 'You got between 50 and 89',
+                'option_summary_format' => 'filtered_html',
+                'option_start'          => 50,
+                'option_end'            => 89,
+            ),
+            array(
+                'option_name'           => 'Below 50',
+                'option_summary'        => 'You failed bro',
+                'option_summary_format' => 'filtered_html',
+                'option_start'          => 0,
+                'option_end'            => 49,
+            ),
+        ),
+    ));
+
+    // 3 questions.
+    $question_1 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1, 'feedback' => 'Q1Feedback'));
+    $question_2 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1, 'feedback' => 'Q2Feedback'));
+    $question_3 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1, 'feedback' => 'Q3Feedback'));
+    $this->linkQuestionToQuiz($question_1, $quiz);
+    $this->linkQuestionToQuiz($question_2, $quiz);
+    $this->linkQuestionToQuiz($question_3, $quiz);
+
+    // Test 100%
+    $this->drupalLogin($this->user);
+    $this->drupalGet("quiz/$quiz->qid/take");
+    $this->drupalPost(NULL, array("question[$question_1->qid][answer]" => 1), t('Next'));
+    $this->drupalPost(NULL, array("question[$question_2->qid][answer]" => 1), t('Next'));
+    $this->drupalPost(NULL, array("question[$question_3->qid][answer]" => 1), t('Finish'));
+    $this->assertText('You got 90 or more on the quiz');
+    $this->assertText('This is the summary if passed');
+    $this->assertNoText('This is the default summary text');
+
+    // Test 66%
+    $this->drupalGet("quiz/$quiz->qid/take");
+    $this->drupalPost(NULL, array("question[$question_1->qid][answer]" => 1), t('Next'));
+    $this->drupalPost(NULL, array("question[$question_2->qid][answer]" => 1), t('Next'));
+    $this->drupalPost(NULL, array("question[$question_3->qid][answer]" => 0), t('Finish'));
+    $this->assertText('You got between 50 and 89');
+    $this->assertNoText('This is the summary if passed');
+    $this->assertText('This is the default summary text');
+
+    // Test 33%
+    $this->drupalGet("quiz/$quiz->qid/take");
+    $this->drupalPost(NULL, array("question[$question_1->qid][answer]" => 1), t('Next'));
+    $this->drupalPost(NULL, array("question[$question_2->qid][answer]" => 0), t('Next'));
+    $this->drupalPost(NULL, array("question[$question_3->qid][answer]" => 0), t('Finish'));
+    $this->assertText('You failed bro');
+    $this->assertNoText('This is the summary if passed');
+    $this->assertText('This is the default summary text');
+  }
+
+  /**
+   * Test access to results.
+   */
+  function testQuizResultAccess() {
+    $question = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $quiz = $this->linkQuestionToQuiz($question);
+
+    // Submit an answer.
+    $this->drupalLogin($this->user);
+    $this->drupalGet("quiz/$quiz->qid/take");
+    $this->drupalPost(NULL, array("question[$question->qid][answer]" => 1), t('Finish'));
+
+    $resultsUrl = $this->getUrl();
+
+    $this->drupalGet($resultsUrl);
+    $this->assertResponse(200, t('User can view own result'));
+    $this->drupalLogout();
+    $this->drupalGet($resultsUrl);
+    $this->assertNoResponse(200, t('Anonymous user cannot view result'));
+  }
+
+  /**
+   * Test the all, best, and last quiz result pruning.
+   */
+  public function testResultPruning() {
+    $question_1 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $question_2 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $question_3 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $question_4 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+
+    $quiz = $this->drupalCreateQuiz();
+    $this->linkQuestionToQuiz($question_1, $quiz);
+    $this->linkQuestionToQuiz($question_2, $quiz);
+    $this->linkQuestionToQuiz($question_3, $quiz);
+    $this->linkQuestionToQuiz($question_4, $quiz);
+
+    $this->drupalLogin($this->user);
+
+    // ------------------------------------------
+    // Test QUIZ_KEEP_ALL option
+    // ------------------------------------------
+    $quiz->keep_results = QUIZZ_KEEP_ALL;
+    entity_save('quiz_entity', $quiz);
+
+    // Create 2 100% results.
+    for ($i = 1; $i <= 2; $i++) {
+      $this->drupalGet("quiz/$quiz->qid/take");
+      $this->drupalPost(NULL, array("question[$question_1->qid][answer]" => 1), t('Next'));
+      $this->drupalPost(NULL, array("question[$question_2->qid][answer]" => 1), t('Next'));
+      $this->drupalPost(NULL, array("question[$question_3->qid][answer]" => 1), t('Next'));
+      $this->drupalPost(NULL, array("question[$question_4->qid][answer]" => 1), t('Finish'));
+    }
+
+    // Storing all results.
+    $results_1st = entity_load('quiz_result');
+    $this->assertEqual(count($results_1st), 2, 'Found 2 quiz results.');
+
+    // ------------------------------------------
+    // Test QUIZ_KEEP_LATEST option
+    // ------------------------------------------
+    $quiz->keep_results = QUIZZ_KEEP_LATEST;
+    entity_save('quiz_entity', $quiz);
+
+    // Create a 50% result.
+    $this->drupalGet("quiz/$quiz->qid/take");
+    $this->drupalPost(NULL, array("question[$question_1->qid][answer]" => 1), t('Next'));
+    $this->drupalPost(NULL, array("question[$question_2->qid][answer]" => 1), t('Next'));
+    $this->drupalPost(NULL, array("question[$question_3->qid][answer]" => 0), t('Next'));
+    $this->drupalPost(NULL, array("question[$question_4->qid][answer]" => 0), t('Finish'));
+
+    // We should only have one 50% result.
+    $results_2nd = entity_load('quiz_result', FALSE, array(), TRUE);
+    $this->assertEqual(count($results_2nd), 1, 'Found only one quiz result');
+    $result_2nd = reset($results_2nd);
+    $this->assertEqual($result_2nd->score, 50, 'Quiz result was 50%');
+
+    // ------------------------------------------
+    // Test QUIZ_KEEP_BEST option
+    // ------------------------------------------
+    $quiz->keep_results = QUIZZ_KEEP_BEST;
+    entity_save('quiz_entity', $quiz);
+
+    $this->drupalGet("quiz/$quiz->qid/take");
+    $this->drupalPost(NULL, array("question[$question_1->qid][answer]" => 1), t('Next'));
+    $this->drupalPost(NULL, array("question[$question_2->qid][answer]" => 0), t('Next'));
+    $this->drupalPost(NULL, array("question[$question_3->qid][answer]" => 0), t('Next'));
+    $this->drupalPost(NULL, array("question[$question_4->qid][answer]" => 0), t('Finish'));
+
+    // We should still only have one 50% result, since we failed.
+    $results_3rd = entity_load('quiz_result', FALSE, array(), TRUE);
+    $this->assertTrue(count($results_3rd) == 1, 'Found only one quiz result');
+    $result_3rd = reset($results_3rd);
+    $this->assertEqual($result_3rd->score, 50, 'Quiz score was 50%');
+
+    $this->drupalGet("quiz/$quiz->qid/take");
+    $this->drupalPost(NULL, array("question[$question_1->qid][answer]" => 1), t('Next'));
+    $this->drupalPost(NULL, array("question[$question_2->qid][answer]" => 1), t('Next'));
+    $this->drupalPost(NULL, array("question[$question_3->qid][answer]" => 1), t('Next'));
+    $this->drupalPost(NULL, array("question[$question_4->qid][answer]" => 0), t('Finish'));
+
+    // We should still only have one 75% result.
+    $results_4th = entity_load('quiz_result', FALSE, array(), TRUE);
+    $this->assertEqual(count($results_4th), 1, 'Found only one quiz result');
+    $result_4th = reset($results_4th);
+    $this->assertEqual($result_4th->score, 75, 'Quiz score was 75%');
+  }
+
+  /**
+   * Test the build on last attempt functionality.
+   */
+  public function testBuildOnLastAttempt() {
+    // Prepopulate correct answers.
+    $quiz = $this->drupalCreateQuiz(array('build_on_last' => 'correct'));
+    $question_1 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $question_2 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $question_3 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $question_4 = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1));
+    $this->linkQuestionToQuiz($question_1, $quiz);
+    $this->linkQuestionToQuiz($question_2, $quiz);
+    $this->linkQuestionToQuiz($question_3, $quiz);
+    $this->linkQuestionToQuiz($question_4, $quiz);
+
+    $this->drupalLogin($this->user);
+
+    // Take the quiz.
+    $this->drupalGet("quiz/$quiz->qid/take");
+
+    // No build on last form here.
+    $this->drupalPost(NULL, array("question[$question_1->qid][answer]" => 1), t('Next'));
+    $this->drupalPost(NULL, array("question[$question_2->qid][answer]" => 0), t('Next'));
+    $this->drupalPost(NULL, array("question[$question_3->qid][answer]" => 1), t('Next'));
+    $this->drupalPost(NULL, array("question[$question_4->qid][answer]" => 0), t('Finish'));
+
+    // Take it again, ensure the correct answers are prefilled.
+    $this->drupalGet("quiz/$quiz->qid/take");
+    $this->drupalPost(NULL, array('build_on_last' => 'correct'), t('Start @quiz', array('@quiz' => QUIZZ_NAME)));
+    $this->assertFieldChecked("edit-question-{$question_1->qid}-answer-1");
+    $this->drupalPost(NULL, array("question[$question_1->qid][answer]" => 1), t('Next'));
+    $this->assertNoFieldChecked("edit-question-{$question_2->qid}-answer-1");
+    $this->drupalPost(NULL, array("question[$question_2->qid][answer]" => 0), t('Next'));
+    $this->assertFieldChecked("edit-question-{$question_3->qid}-answer-1");
+    $this->drupalPost(NULL, array("question[$question_3->qid][answer]" => 1), t('Next'));
+    $this->assertNoFieldChecked("edit-question-{$question_4->qid}-answer-1");
+    $this->drupalPost(NULL, array("question[$question_4->qid][answer]" => 0), t('Finish'));
+
+    // Switch the build option
+    $quiz->build_on_last = 'all';
+    $quiz->save();
+
+    // Take the quiz with this revision.
+    $this->drupalGet("quiz/$quiz->qid/take");
+    $this->drupalPost(NULL, array('build_on_last' => 'all'), t('Start @quiz', array('@quiz' => QUIZZ_NAME)));
+    $this->drupalPost(NULL, array("question[$question_1->qid][answer]" => 1), t('Next'));
+    $this->drupalPost(NULL, array("question[$question_2->qid][answer]" => 0), t('Next'));
+    $this->drupalPost(NULL, array("question[$question_3->qid][answer]" => 1), t('Next'));
+    $this->drupalPost(NULL, array("question[$question_4->qid][answer]" => 0), t('Finish'));
+
+    // Take it again, ensure all the answers are prefilled.
+    $this->drupalGet("quiz/$quiz->qid/take");
+    $this->drupalPost(NULL, array('build_on_last' => 'all'), t('Start @quiz', array('@quiz' => QUIZZ_NAME)));
+    $this->assertFieldChecked("edit-question-{$question_1->qid}-answer-1");
+    $this->drupalPost(NULL, array("question[$question_1->qid][answer]" => 1), t('Next'));
+    $this->assertFieldChecked("edit-question-{$question_2->qid}-answer-0");
+    $this->drupalPost(NULL, array("question[$question_2->qid][answer]" => 0), t('Next'));
+    $this->assertFieldChecked("edit-question-{$question_3->qid}-answer-1");
+    $this->drupalPost(NULL, array("question[$question_3->qid][answer]" => 1), t('Next'));
+    $this->assertFieldChecked("edit-question-{$question_4->qid}-answer-0");
+    $this->drupalPost(NULL, array("question[$question_4->qid][answer]" => 0), t('Finish'));
+  }
+
+  /**
+   * Test fieldable Quiz results.
+   */
+  public function testFieldableResults() {
+    // Add a field to quiz result and make it required for starting.
+    field_create_field(array('field_name' => 'quiz_result_field_a', 'type' => 'text'));
+    field_create_instance(array(
+        'field_name'  => 'quiz_result_field_a',
+        'entity_type' => 'quiz_result',
+        'bundle'      => 'quiz',
+        'label'       => 'Result field A',
+        'widget'      => array(
+            'active'   => 1,
+            'module'   => 'text',
+            'settings' => array('size' => 60),
+            'type'     => 'text_textfield',
+            'weight'   => 1,
+        ),
+        'settings'    => array('quiz_result_user_field' => 1),
+        'required'    => 1,
+    ));
+
+    $quiz = $this->drupalCreateQuiz();
+    $question = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1, 'feedback' => 'Q1Feedback'));
+    $this->linkQuestionToQuiz($question, $quiz);
+
+    // Taking quiz
+    $this->drupalLogin($this->user);
+
+    // Check if field shows up and user is not yet enrolled.
+    $this->drupalGet("quiz/$quiz->qid/take");
+    $this->assertFieldById('edit-quiz-result-field-a-und-0-value');
+
+    // Check the result not yet created
+    $empty_results = entity_load('quiz_result', FALSE, array('quiz_qid' => $quiz->qid, 'uid' => $this->user->uid));
+    $this->assertTrue(empty($empty_results), 'Quiz result is not created.');
+
+    // Submit the form, Check that we hooked into Form API correctly.
+    $this->drupalPost(NULL, array(), t('Start Quiz'));
+    $this->assertText('field is required');
+
+    // SUbmit the form with data.
+    $this->drupalPost(NULL, array('quiz_result_field_a[und][0][value]' => 'test 123'), t('Start Quiz'));
+
+    // Check the result exists now.
+    $result = entity_load('quiz_result', FALSE, array('quiz_qid' => $quiz->qid, 'uid' => $this->user->uid));
+    $this->assertTrue(!empty($result), 'Quiz result exists.');
+  }
+
+  public function testUserCancelAccount() {
+    $this->checkUserCancelAccount(TRUE, 'Result is deleted.');
+    $this->checkUserCancelAccount(FALSE, 'Result is kept.');
+  }
+
+  private function checkUserCancelAccount($delete, $msg) {
+    quizz_type_load('quiz')->setConfig('quiz_durod', $delete)->save();
+
+    $quiz = $this->drupalCreateQuiz();
+    $question = $this->drupalCreateQuestion(array('type' => 'truefalse', 'correct_answer' => 1, 'feedback' => 'Q1Feedback'));
+    $this->linkQuestionToQuiz($question, $quiz);
+
+    $generator = new ResultGenerator();
+    $result = $generator->generate($quiz, $this->user);
+
+    $account_1 = $this->createNormalAccount();
+    $result->uid = $account_1->uid;
+    $result->is_evaluated = TRUE;
+    $result->time_end = time() + 10;
+    $result->save();
+    quizz_user_cancel(array(), $account_1, 'user_cancel_block');
+
+    $reload = entity_load('quiz_result', FALSE, array('result_id' => $result->result_id));
+    $this->assertTrue($delete ? empty($reload) : !empty($reload), $msg);
+  }
+
+}

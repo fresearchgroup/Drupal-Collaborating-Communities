@@ -1,0 +1,12 @@
+<?php
+
+use Drupal\quizz_question\Schema\Schema7060;
+
+/**
+ * Implements hook_schema().
+ */
+function quizz_question_schema() {
+  require_once dirname(__FILE__) . '/src/Schema/Schema7060.php';
+  $schema = new Schema7060();
+  return $schema->get();
+}

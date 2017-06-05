@@ -1,0 +1,31 @@
+<?php
+
+use Drupal\quizz_question\Entity\Question;
+
+class DirectionsQuestionTestCase extends QuizTestCase {
+
+  protected $questionHandler = 'quiz_directions';
+
+  public static function getInfo() {
+    return array(
+        'name'        => t('Quiz directions'),
+        'description' => t('Test cases for Quiz directions question type.'),
+        'group'       => 'Quiz question',
+    );
+  }
+
+  private function createQuizQuestion($settings = array()) {
+    return $this->drupalCreateQuestion(array(
+          'type'  => $this->questionHandler,
+          'title' => 'QD 1 title',
+          'body'  => 'QD 1 body text.'
+        ) + $settings);
+  }
+
+  public function testBasicDirectionsQuestion() {
+    $question = $this->createQuizQuestion();
+    $this->assertTrue($question instanceof Question);
+    $this->assertEqual($this->questionHandler, $question->getQuestionType()->handler);
+  }
+
+}

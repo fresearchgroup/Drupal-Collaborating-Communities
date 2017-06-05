@@ -1,0 +1,28 @@
+<?php
+
+/**
+ * Implements hook_schema().
+ */
+function quizz_truefalse_schema() {
+  // Extensions to nodes for T/F
+  $schema['quiz_truefalse_question'] = array(
+      'fields'      => array(
+          'qid'            => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE,),
+          'vid'            => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE,),
+          'correct_answer' => array('type' => 'int', 'unsigned' => TRUE, 'size' => 'tiny', 'default' => 0, 'description' => 'The correct answer for the user to give. 1 for true.'),
+      ),
+      'primary key' => array('vid', 'qid'),
+  );
+
+  // Place to store user answers for T/F questions
+  $schema['quiz_truefalse_answer'] = array(
+      'fields'      => array(
+          'answer_id' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE),
+          'answer'    => array('type' => 'int', 'unsigned' => TRUE, 'size' => 'tiny', 'default' => 0),
+          'score'     => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
+      ),
+      'primary key' => array('answer_id'),
+  );
+
+  return $schema;
+}

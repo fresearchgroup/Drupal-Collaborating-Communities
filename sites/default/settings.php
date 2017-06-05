@@ -249,9 +249,9 @@ $databases = array (
   array (
     'default' => 
     array (
-      'database' => 'portal',
+      'database' => 'collab',
       'username' => 'root',
-      'password' => 'root',
+      'password' => 'huracan_14',
       'host' => 'localhost',
       'port' => '',
       'driver' => 'mysql',
@@ -290,7 +290,7 @@ $update_free_access = FALSE;
  *   $drupal_hash_salt = file_get_contents('/home/example/salt.txt');
  *
  */
-$drupal_hash_salt = 'dwaQRvE5BqWi8LBUBLbuRRkHLZLdmsYjC_oxudigxOo';
+$drupal_hash_salt = 'pNZ0n-LodK6zlVPeZ15oAy0M8aIYinkNAnKX_y4mXZw';
 
 /**
  * Base URL (optional).

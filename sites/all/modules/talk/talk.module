@@ -170,8 +170,8 @@ function talk_node_load($nodes, $types) {
     if (talk_activated($node->type) && arg(0) == 'node' && !arg(2)) {
       // Overwrite setting of comment module and set comments for this node to disabled.
       // This prevents the comments of being displayed.
-      //$node->comment_original_value = $node->comment;
-      //$node->comment = 0;
+      $node->comment_original_value = $node->comment;
+      $node->comment = 0;
     }
   }
 }

@@ -1,0 +1,24 @@
+<?php
+
+use Drupal\quizz\Schema\Schema7060;
+
+/**
+ * Implements hook_install().
+ */
+function quizz_install() {
+  // Create default quiz type. In case the module is installed via an
+  // installation profile, skip that.
+  if (!drupal_installation_attempted()) {
+    $quiz_type = entity_create('quiz_type', array('type' => 'quiz', 'label' => t('Quiz'), 'weight' => 0));
+    $quiz_type->save();
+  }
+}
+
+/**
+ * Implements hook_schema().
+ */
+function quizz_schema() {
+  require_once dirname(__FILE__) . '/src/Schema/Schema7060.php';
+  $schema = new Schema7060();
+  return $schema->get();
+}

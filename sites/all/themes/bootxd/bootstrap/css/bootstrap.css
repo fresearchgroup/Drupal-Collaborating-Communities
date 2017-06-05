@@ -4271,14 +4271,23 @@ select[multiple].input-group-sm > .input-group-btn > .btn {
   margin-bottom: 0;
   border-width: 1px 0 0;
 }
+
+/*.navbar-brand {
+  float: left;
+  height: 50px;
+  padding: 15px 15px;
+  font-size: 18px;
+  line-height: 20px;
+}*/
 .navbar-brand {
   float: left;
   font-weight: bold;
   height: 50px;
   padding: 15px 15px;
-  font-size: 25px;
+  font-size: 24px;
   line-height: 20px;
 }
+
 .navbar-brand:hover,
 .navbar-brand:focus {
   text-decoration: none;
@@ -4493,38 +4502,62 @@ select[multiple].input-group-sm > .input-group-btn > .btn {
     margin-right: 0;
   }
 }
+/*.navbar-default {
+  background-color: #f8f8f8;
+  border-color: #e7e7e7;
+}*/
 .navbar-default {
   background-color: #337ab7;
- /* border-color: #e7e7e7;*/
-  border-color: #337ab7;	
-
+  border-color: #337ab7;  
 }
+
+/*.navbar-default .navbar-brand {
+  color: #777;
+}*/
 .navbar-default .navbar-brand {
   color: #eeeeee;
 }
+
+/*.navbar-default .navbar-brand:hover,
+.navbar-default .navbar-brand:focus {
+  color: #5e5e5e;
+  background-color: transparent;
+}*/
 .navbar-default .navbar-brand:hover,
 .navbar-default .navbar-brand:focus {
   color: #ffffff;
   background-color: transparent;
 }
+
 .navbar-default .navbar-text {
   color: #777;
 }
+/*.navbar-default .navbar-nav > li > a {
+  color: #777;
+}*/
 .navbar-default .navbar-nav > li > a {
-  color: #ffffff;
+  color: #fff;
   font-weight: bold;
 }
+
 .navbar-default .navbar-nav > li > a:hover,
 .navbar-default .navbar-nav > li > a:focus {
   color: #333;
   background-color: transparent;
 }
+/*.navbar-default .navbar-nav > .active > a,
+.navbar-default .navbar-nav > .active > a:hover,
+.navbar-default .navbar-nav > .active > a:focus {
+  color: #555;
+  background-color: #e7e7e7;
+}*/
 .navbar-default .navbar-nav > .active > a,
 .navbar-default .navbar-nav > .active > a:hover,
 .navbar-default .navbar-nav > .active > a:focus {
   color: #337ab7;
   background-color: #e7e7e7;
 }
+
 .navbar-default .navbar-nav > .disabled > a,
 .navbar-default .navbar-nav > .disabled > a:hover,
 .navbar-default .navbar-nav > .disabled > a:focus {
@@ -4548,11 +4581,10 @@ select[multiple].input-group-sm > .input-group-btn > .btn {
 .navbar-default .navbar-nav > .open > a,
 .navbar-default .navbar-nav > .open > a:hover,
 .navbar-default .navbar-nav > .open > a:focus {
-  color: #337ab7;
+  color: #555;
   background-color: #e7e7e7;
 }
 @media (max-width: 767px) {
-  /*.menu.nav.navbar-nav.secondary{ float:left; } */
   .navbar-default .navbar-nav .open .dropdown-menu > li > a {
     color: #fff;
   }
