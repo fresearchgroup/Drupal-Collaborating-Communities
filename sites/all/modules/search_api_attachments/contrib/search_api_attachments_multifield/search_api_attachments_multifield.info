@@ -1,0 +1,16 @@
+name = Search API Attachments Multifield
+description = "Extends the attachments indexing to file fields in a multifield field"
+dependencies[] = multifield
+dependencies[] = search_api_attachments
+core = 7.x
+package = Search
+
+files[] = includes/callback_attachments_multifield_settings.inc
+
+
+; Information added by Drupal.org packaging script on 2017-02-18
+version = "7.x-1.11"
+core = "7.x"
+project = "search_api_attachments"
+datestamp = "1487417009"
+
