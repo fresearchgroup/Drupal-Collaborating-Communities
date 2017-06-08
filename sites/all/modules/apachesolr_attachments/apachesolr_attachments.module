@@ -1,0 +1,847 @@
+<?php
+
+/**
+ * @file
+ * Provides a file attachment search implementation for use with the Apache Solr module
+ */
+
+define('EXTRACTING_SERVLET', 'extract/tika');
+/**
+ * Implements hook_menu().
+ */
+function apachesolr_attachments_menu() {
+  $items = array();
+  $items['admin/config/search/apachesolr/attachments'] = array(
+    'title' => 'Attachments',
+    'description' => 'Administer Apache Solr Attachments.',
+    'page callback' => 'apachesolr_attachments_admin_page',
+    'access arguments' => array('administer search'),
+    'file' => 'apachesolr_attachments.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['admin/config/search/apachesolr/attachments/test'] = array(
+    'title' => 'Test tika extraction',
+    'page callback' => 'apachesolr_attachments_test_tika_extraction',
+    'access arguments' => array('administer search'),
+    'file' => 'apachesolr_attachments.admin.inc',
+    'type' => MENU_CALLBACK,
+  );
+  $items['admin/config/search/apachesolr/attachments/confirm/delete'] = array(
+    'title' => 'Delete and reindex all files',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('apachesolr_attachments_confirm', 6),
+    'access arguments' => array('administer search'),
+    'file' => 'apachesolr_attachments.admin.inc',
+    'type' => MENU_CALLBACK,
+  );
+  $items['admin/config/search/apachesolr/attachments/confirm/clear-cache'] = array(
+    'title' => 'Delete the local cache of file text',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('apachesolr_attachments_confirm', 6),
+    'access arguments' => array('administer search'),
+    'file' => 'apachesolr_attachments.admin.inc',
+    'type' => MENU_CALLBACK,
+  );
+  $items['admin/config/search/apachesolr/attachments/general'] = array(
+    'title' => 'General',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+  $items['admin/config/search/apachesolr/attachments/entity_bundle'] = array(
+    'title' => 'Bundle',
+    'description' => 'Administer Apache Solr Attachments per bundle settings.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('apachesolr_attachments_entity_bundle_settings'),
+    'access arguments' => array('administer search'),
+    'file' => 'apachesolr_attachments.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 1,
+  );
+  return $items;
+}
+
+/**
+ * @file
+ *   Indexer for the userhook_apachesolr_entity_info_alter entities for the Apachesolr module.
+ */
+
+function apachesolr_attachments_apachesolr_entity_info_alter(&$entity_info) {
+  $entity_info['file']['indexable'] = TRUE;
+  $entity_info['file']['status callback'][] = 'apachesolr_attachments_status_callback';
+  $entity_info['file']['document callback'][] = 'apachesolr_attachments_solr_document';
+  $entity_info['file']['reindex callback'] = 'apachesolr_attachments_solr_reindex';
+  $entity_info['file']['index_table'] = 'apachesolr_index_entities_file';
+  $entity_info['file']['result callback'] = 'apachesolr_attachments_file_result';
+
+  // attachment added to parent entity document where configured to be indexed together
+  $entity_info['node']['document callback'][] = 'apachesolr_attachments_node_solr_document';
+}
+
+/**
+ * Builds the file-specific information for a Solr document.
+ *
+ * @param ApacheSolrDocument $document
+ *   The Solr document we are building up.
+ * @param stdClass $entity
+ *   The entity we are indexing.
+ * @param string $entity_type
+ *   The type of entity we're dealing with.
+ */
+function apachesolr_attachments_solr_document(ApacheSolrDocument $document, $file, $entity_type, $env_id) {
+  module_load_include('inc', 'apachesolr_attachments', 'apachesolr_attachments.index');
+  $documents = array();
+  $table = apachesolr_get_indexer_table('file');
+
+  // Text is saved in the index table. Will be used by the node indexing if
+  // available.
+  $text = apachesolr_attachments_get_attachment_text($file);
+  // If we don't have extracted text we should stop our process here
+
+  if (empty($text)) {
+    return $documents;
+  }
+
+  // Get the list of parents that we should index from the indexing table
+  $parents = db_select($table, 'aie')
+    ->fields('aie')
+    ->condition('entity_type', 'file')
+    ->condition('entity_id', $file->fid)
+    ->execute();
+
+  foreach ($parents as $parent) {
+    // load the parent entity and reset cache
+    $parent_entities = entity_load($parent->parent_entity_type, array($parent->parent_entity_id), NULL, TRUE);
+    $parent_entity = reset($parent_entities);
+
+    // Skip invalid entities
+    if (empty($parent_entity)) {
+      continue;
+    }
+
+    // Retrieve the parent entity id and bundle
+    list($parent_entity_id, $parent_entity_vid, $parent_entity_bundle) = entity_extract_ids($parent->parent_entity_type, $parent_entity);
+    $parent_entity_type = $parent->parent_entity_type;
+
+    // proceed with building this document only if the parent entity is not flagged for
+    // indexing attachments with parent entity or not indexing attachements
+    if (variable_get('apachesolr_attachments_entity_bundle_indexing_' . $parent_entity_bundle, 'seperate') == 'seperate') {
+      // Get a clone of the bare minimum document
+      $filedocument = clone $document;
+
+      //Get the callback array to add stuff to the document
+      $callbacks = apachesolr_entity_get_callback($parent_entity_type, 'document callback');
+      $build_documents = array();
+      if (is_array($callbacks)) {
+        foreach ($callbacks as $callback) {
+          // Call a type-specific callback to add stuff to the document.
+          if (is_callable($callback)) {
+            $build_documents = array_merge($build_documents, $callback($filedocument, $parent_entity, $parent_entity_type, $env_id));
+          }
+        }
+      }
+
+      // Take the top document from the stack
+      $filedocument = reset($build_documents);
+
+      // Add node access grants from the parent node to the file so that files
+      // are appropriately shown or filtered out of search results based on
+      // whether the user can access the node they are attached to.
+      if ($parent_entity_type == 'node' && function_exists('apachesolr_access_apachesolr_index_document_build_node')) {
+        apachesolr_access_apachesolr_index_document_build_node($filedocument, $parent_entity, $env_id);
+      }
+
+      // Build our separate document and overwrite basic information
+      $filedocument->id = apachesolr_document_id($file->fid . '-' . $parent_entity_id, $entity_type);
+      $filedocument->url = file_create_url($file->uri);
+      $path = file_stream_wrapper_get_instance_by_uri($file->uri)->getExternalUrl();
+      // A path is not a requirement of an entity
+      if (!empty($path)) {
+        $filedocument->path = $path;
+      }
+
+      // Add extra info to our document
+      $filedocument->label = apachesolr_clean_text($file->filename);
+      $filedocument->content = apachesolr_clean_text($file->filename) . ' ' . $text;
+
+      $filedocument->ds_created = apachesolr_date_iso($file->timestamp);
+      $filedocument->ds_changed = $filedocument->ds_created;
+
+      $filedocument->created = apachesolr_date_iso($file->timestamp);
+      $filedocument->changed = $filedocument->created;
+
+      // Add Parent information fields. See http://drupal.org/node/1515822 for explanation
+      $parent_entity_info = entity_get_info($parent_entity_type);
+      $small_parent_entity = new stdClass();
+      $small_parent_entity->entity_type = $parent_entity_type;
+      $small_parent_entity->{$parent_entity_info['entity keys']['id']} = $parent_entity_id;
+
+      $small_parent_entity->{$parent_entity_info['entity keys']['bundle']} = $parent_entity_bundle;
+
+     // Not all entities has entity key label set, so it should be checked first to avoid errors.
+     if (isset($parent_entity_info['entity keys']['label'])) {
+       $small_parent_entity->{$parent_entity_info['entity keys']['label']} = $parent_entity->{$parent_entity_info['entity keys']['label']};
+     }
+
+      // Add all to one field because if it is spread out over
+      // multiple fields there is no way of knowing which multifield value
+      // belongs to which entity
+      // It does not load the complete entity in to the index because that
+      // would dramatically increase the index size and processing time
+      $filedocument->zm_parent_entity = drupal_json_encode($small_parent_entity);
+      $filedocument->sm_parent_entity_bundle = $parent_entity_type . "-" . $parent_entity_bundle;
+      $filedocument->sm_parent_entity_type = $parent_entity_type;
+
+      // Add Apachesolr Attachments specific fields.
+      $filedocument->ss_filemime = $file->filemime;
+      $filedocument->ss_filesize = $file->filesize;
+
+      $documents[] = $filedocument;
+     }
+  }
+
+  return $documents;
+}
+
+/**
+* Builds the file-specific information for a Solr document.
+*
+* @param ApacheSolrDocument $document
+*   The Solr document we are building up.
+* @param stdClass $entity
+*   The entity we are indexing.
+* @param string $entity_type
+*   The type of entity we're dealing with.
+*/
+function apachesolr_attachments_node_solr_document(ApacheSolrDocument &$document, $parent_entity, $env_id) {
+  module_load_include('inc', 'apachesolr_attachments', 'apachesolr_attachments.index');
+
+  list($parent_entity_id, $parent_entity_vid, $parent_entity_bundle) = entity_extract_ids('node', $parent_entity);
+
+  // proceed with combining attachment content to entity document only if the
+  // parent entity is flagged for indexing attachments with parent entity
+  if (variable_get('apachesolr_attachments_entity_bundle_indexing_' . $parent_entity_bundle, 'seperate') == 'parent') {
+    $file_field_names = array();
+    $fields = field_info_field_by_ids();
+    if (is_array($fields)) {
+      foreach ($fields as $field_id => $field_info) {
+        if ($field_info['type'] == 'file') {
+          foreach ($field_info['bundles'] as $entity_type => $bundles) {
+            if (in_array($parent_entity_bundle, $bundles)) {
+              $file_field_names[$field_info['field_name']] = $field_info['field_name'];
+            }
+          }
+        }
+      }
+    }
+    foreach ($file_field_names as $file_field) {
+      if (isset($parent_entity->$file_field)) {
+        $parent_entity_file_fields = $parent_entity->$file_field;
+        //@todo deal with different languages properly
+        foreach($parent_entity_file_fields as $language => $files) {
+          foreach ($files as $file) {
+
+            $file = (object)$file;
+            // perform some basic validation that the file is ok to extract text from
+            $status = ($file->status == 1 ? 1 : 0);
+            // Check if the mimetype is allowed
+            $status = $status & apachesolr_attachments_is_file($file);
+            $status = $status & apachesolr_attachments_allowed_mime($file->filemime);
+
+            if ($status) {
+              $text = apachesolr_attachments_get_attachment_text($file);
+              // append extracted text to index content field
+              $document->content .= apachesolr_clean_text($file->filename) . ' ' . $text;
+            }
+          }
+        }
+      }
+    }
+  }
+  return array(); // all alterations are made to $document passed in by reference
+}
+
+/**
+ * Reindexing callback for ApacheSolr, for file entities.
+ */
+function apachesolr_attachments_solr_reindex() {
+  module_load_include('inc', 'apachesolr_attachments', 'apachesolr_attachments.index');
+  $indexer_table = apachesolr_get_indexer_table('file');
+  $transaction = db_transaction();
+  $env_id = apachesolr_default_environment();
+  try {
+    // Clean the table
+    db_delete($indexer_table)
+      ->condition('entity_type', 'file')
+      ->isNull('body')
+      ->execute();
+    $files = _apachesolr_attachments_get_all_files();
+
+    // If we do not have files, return success
+    if (empty($files)) {
+      return TRUE;
+    }
+    // Loop over all the files and add them to our indexing table
+    foreach ($files as $parent_entity_type => $parent_entities) {
+      foreach ($parent_entities as $parent_entity_info) {
+        // Fake our file class
+        $file = new stdClass();
+        foreach ($parent_entity_info->extraFields as $key => $value) {
+          if (strpos($key, '_fid')) {
+            $file->fid = $parent_entity_info->extraFields->$key;
+          }
+        }
+        list ($parent_entity_id) = entity_extract_ids($parent_entity_type, $parent_entity_info);
+        apachesolr_attachments_add_file_usage($file, $parent_entity_type, $parent_entity_id);
+      }
+    }
+  }
+  catch (Exception $e) {
+    $transaction->rollback();
+    drupal_set_message($e->getMessage(), 'error');
+    watchdog_exception('Apache Solr Attachments', $e);
+    return FALSE;
+  }
+  return TRUE;
+}
+
+/**
+ * Fetches all files linked to nodes created by fields from the file module
+ * regardless of the widget
+ * @return type
+ */
+function _apachesolr_attachments_get_all_files() {
+  $results = array();
+  $fields = field_info_field_by_ids();
+  foreach ($fields as $field_id => $field_info) {
+    if ($field_info['type'] == 'file') {
+      foreach ($field_info['bundles'] as $entity_type => $bundles) {
+        $entity_info = entity_get_info($entity_type);
+        // If this entity type is not indexable, ignore this and move on to the
+        // next one
+        if (empty($entity_info['apachesolr']['indexable'])) {
+          continue;
+        }
+
+        $query = new ApachesolrAttachmentsEntityFieldQuery();
+        $results_query = $query
+          ->entityCondition('entity_type', $entity_type)
+          ->fieldCondition($field_info['field_name'])
+          // Fetch all file ids related to the entities
+          ->addExtraField($field_info['field_name'], 'fid', 'fid')
+          ->execute();
+        $results = array_merge_recursive($results, $results_query);
+
+      }
+    }
+  }
+  return $results;
+}
+
+/**
+ * Status callback for the files. Files should never be removed from the table.
+ * See apachesolr_attachments_apachesolr_exclude() for exclusion of items
+ * @param type $entity_id
+ * @param type $entity_type
+ * @return type
+ */
+function apachesolr_attachments_status_callback($entity_id, $entity_type) {
+  module_load_include('inc', 'apachesolr_attachments', 'apachesolr_attachments.index');
+  // load the entity and reset cache
+  $entities = entity_load($entity_type, array($entity_id), NULL, TRUE);
+  $entity = reset($entities);
+  // Check if the mimetype is allowed
+  if (apachesolr_attachments_allowed_mime($entity->filemime) == FALSE) {
+    // Set status to 0 and remove from the index
+    return FALSE;
+  }
+  // Check if the file is a real file
+  if (apachesolr_attachments_is_file($entity) == FALSE) {
+    // Set status to 0 and remove from the index
+    return FALSE;
+  }
+  // Check if the entity status is active
+  if ($entity->status != 1) {
+    // Set status to 0 and remove from the index
+    return FALSE;
+  }
+  // Keep status at 1
+  return TRUE;
+}
+
+/**
+ * Implenents hook_apachesolr_ENTITY_TYPE_exclude().
+ *
+ * This is invoked for each file entity that is being inspected to be added to the
+ * index. if any module returns TRUE, the entity is skipped for indexing.
+ *
+ * @param integer $entity_id
+ * @param integer $row
+ *   A complete set of data from the indexing table.
+ * @param string $env_id
+ * @return boolean
+ */
+function apachesolr_attachments_apachesolr_file_exclude($entity_id, $row, $env_id) {
+  module_load_include('inc', 'apachesolr_attachments', 'apachesolr_attachments.index');
+  // Make sure we have a boolean value.
+  // Anything different from 1 becomes zero
+  if (!$entity_id || !$row->parent_entity_id) {
+    // Exclude
+    return TRUE;
+  }
+  // Check if the parent entity is excluded
+  $parent_entity_id = $row->parent_entity_id;
+  $parent_entity_type = $row->parent_entity_type;
+  $exclude = apachesolr_attachments_is_parent_excluded($entity_id, 'file', $parent_entity_id, $parent_entity_type, $env_id);
+  if ($exclude) {
+    // Exclude
+    return TRUE;
+  }
+
+  // Exclude files above the configured limit.
+  $filesize_limit = variable_get('apachesolr_attachments_filesize_limit', '41943040');
+  // load the entity.
+  $entities = entity_load('file', array($entity_id), NULL, TRUE);
+  // Take the first item.
+  $entity = reset($entities);
+
+  // Check if the filesize is higher than the allowed filesize.
+  if (isset($entity->filesize) && $filesize_limit > 0 && $entity->filesize > $filesize_limit) {
+    return TRUE;
+  }
+
+  // Do not exclude
+  return FALSE;
+}
+
+function apachesolr_attachments_is_file($entity) {
+  if (!empty($entity->uri)) {
+    $filepath = drupal_realpath($entity->uri);
+    // Check that we have a valid filepath.
+    if (!$filepath) {
+      return FALSE;
+    }
+    elseif (!is_file($filepath)) {
+      watchdog('Apache Solr Attachments', '%filepath is not a valid file path', array('%filepath' => $entity->uri), WATCHDOG_WARNING);
+      return FALSE;
+    }
+    else {
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
+/**
+ * Excludes a file if the parent_entity is set to status 0 or it is not
+ * being indexed
+ * @param type $entity_id
+ * @param type $entity_type
+ * @return type
+ */
+function apachesolr_attachments_is_parent_excluded($entity_id, $entity_type, $parent_entity_id, $parent_entity_type, $env_id) {
+  $query = new EntityFieldQuery();
+  $result = $query
+    ->entityCondition('entity_type', $parent_entity_type)
+    ->entityCondition('entity_id', $parent_entity_id)
+    ->execute();
+  // We only need the class and 1 item;
+  if (empty($result)) {
+    // Parent entity id does not exist anymore
+    return TRUE;
+  }
+  $values = array_values($result[$parent_entity_type]);
+  // Since we only expect 1 eid to return, we are going to do
+  // a reset of the array
+  $stub_entity = reset($values);
+
+  $parent_entity_bundle = $stub_entity->type;
+  // Ignore this parent if the bundles to be indexed for this entity type
+  // are not indexed
+  $bundles = apachesolr_get_index_bundles($env_id, $parent_entity_type);
+  if (empty($bundles)) {
+    // Exclude it
+    return TRUE;
+  }
+  else if (!in_array($parent_entity_bundle, $bundles)) {
+    // Exclude it
+    return TRUE;
+  }
+
+  // Skip indexing of files if the node was excluded by apache solr
+  $status_callbacks = apachesolr_entity_get_callback($parent_entity_type, 'status callback');
+  if (!empty($status_callbacks)) {
+    // Set status to true. Allow the callbacks to make the change
+    $status = TRUE;
+    // Check status callback before sending to the index
+    foreach ($status_callbacks as $status_callback) {
+      if (is_callable($status_callback)) {
+        // by placing $status in front we prevent calling any other callback
+        // after one status callback returned false
+        $status = $status && $status_callback($parent_entity_id, $parent_entity_type);
+      }
+    }
+    // TRUE means the status is ok. We should return FALSE so it does
+    // not exclude
+    return !$status;
+  }
+  // Exclude by default
+  return TRUE;
+}
+
+/**
+ * For a particular entity, remove all file attachments from the Solr index.
+ * This function is not in use in the module but can come in handy for people
+ * that prefer to use functions
+ *
+ * @see apachesolr_delete_node_from_index()
+ */
+function apachesolr_attachments_remove_attachments_from_index($parent_entity_type, $parent_entity) {
+  static $failed = FALSE;
+  if ($failed) {
+    return FALSE;
+  }
+  try {
+    // Retrieve the parent entity id and bundle
+    list($parent_entity_id, $parent_entity_vid, $parent_entity_bundle) = entity_extract_ids($parent_entity_type, $parent_entity);
+    $solr = apachesolr_get_solr();
+    $solr->deleteByQuery("sm_parent_entity:{$parent_entity_type}-{$parent_entity_bundle}-{$parent_entity_id} AND entity_type:file AND hash:" . apachesolr_site_hash());
+    return TRUE;
+  }
+  catch (Exception $e) {
+    watchdog('Apache Solr Attachments', nl2br(check_plain($e->getMessage())), NULL, WATCHDOG_ERROR);
+    // Don't keep trying queries if they are failing.
+    $failed = TRUE;
+    return FALSE;
+  }
+}
+
+/**
+ * Implements hook_apachesolr_query_alter().
+ */
+function apachesolr_attachments_apachesolr_query_alter(DrupalSolrQueryInterface $query) {
+  if ($query->getName() == 'apachesolr') {
+    // Fetch the extra file data on searches.
+    $query->addParam('fl', array('zm_parent_entity', 'ss_filemime', 'ss_file_entity_title', 'ss_file_entity_url'));
+  }
+  elseif ($query->getName() == 'apachesolr_mlt') {
+    // Exclude files from MLT results.
+    $query->addFilter('entity_type', 'file', TRUE);
+  }
+}
+
+/*
+ * hook_entity_OP functions need to happen to clean up the table after files
+ * were added to the index table
+ */
+function apachesolr_attachments_entity_update($entity, $type) {
+  module_load_include('inc', 'apachesolr_attachments', 'apachesolr_attachments.index');
+  apachesolr_attachments_clean_index_table();
+
+  if ($type == 'file') {
+    _apachesolr_attachments_update_parent_entity($entity, $type);
+  }
+}
+
+function apachesolr_attachments_entity_insert($entity, $type) {
+  apachesolr_attachments_entity_update($entity, $type);
+
+  if ($type == 'file') {
+    _apachesolr_attachments_update_parent_entity($entity, $type);
+  }
+}
+
+function apachesolr_attachments_entity_delete($entity, $type) {
+  module_load_include('inc', 'apachesolr_attachments', 'apachesolr_attachments.index');
+  apachesolr_attachments_clean_index_table();
+}
+
+/**
+* trigger an apachesolr_entity_update of parents where the parents are flagged for indexing attachments with the parent
+**/
+function _apachesolr_attachments_update_parent_entity($entity, $type) {
+  // if this entity was being indexed with its parent, we need to trigger a reindex of the parent
+  $parents = file_get_file_references($entity, NULL, FIELD_LOAD_CURRENT);
+  $parents_list = $parents ? reset($parents) : NULL;
+
+  if (!empty($parents_list)) {
+    foreach ($parents_list as $parent_entity_type => $parent) {
+      foreach ($parent as $parent_entity_id => $parent_info) {
+        // load the parent entity and reset cache
+        $parent_entities = entity_load($parent_entity_type, array($parent_entity_id), NULL, TRUE);
+        // Take the first entity from the stack
+        $parent_entity = reset($parent_entities);
+
+        // Skip invalid entities
+        if (empty($parent_entity)) {
+          continue;
+        }
+
+        // get the bundle
+        list($parent_entity_id, $parent_entity_vid, $parent_entity_bundle) = entity_extract_ids($parent_entity_type, $parent_entity);
+
+        if (variable_get('apachesolr_attachments_entity_bundle_indexing_' . $parent_entity_bundle, 'seperate') == 'parent') {
+          apachesolr_entity_update($parent_entity, $parent_entity_type);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Hook into the field operations
+ *   - we want to save the same data in a shadow copy table for easier indexing.
+ *   - We do not delete the file / media entity when its usage count goes to 0
+ *     but instead we set status to  0.
+ *   - This is meant to make the backport to drupal 6 easier
+ */
+function apachesolr_attachments_field_attach_insert($parent_entity_type, $parent_entity) {
+  apachesolr_attachments_field_attach_update($parent_entity_type, $parent_entity);
+}
+
+function apachesolr_attachments_field_attach_update($parent_entity_type, $parent_entity) {
+  // Not all entities sent through this function have the same
+  // syntax and/or content. We only check entities that have a type.
+  // This excludes comments, so if there would be a file entity atttached to
+  // a comment, this would not be picked up.
+  // TODO: If you are a entity magician, please improve
+  if (isset($parent_entity->type)) {
+    // Check if the deleted entity had a file attached
+    foreach (field_info_instances($parent_entity_type, $parent_entity->type) as $instance) {
+      $field_info = field_info_field($instance['field_name']);
+      if ($field_info['type'] == 'file') {
+        // Include the file after the if, otherwise it'll get included everywhere
+        module_load_include('inc', 'apachesolr_attachments', 'apachesolr_attachments.index');
+
+        $items = field_get_items($parent_entity_type, $parent_entity, $field_info['field_name']);
+        if ($items) {
+          foreach ($items as $file_info) {
+            $file = file_load($file_info['fid']);
+            // Discard empty entities
+            if (empty($file)) {
+              continue;
+            }
+            // Retrieve parent entity id and add its file usage
+            list($parent_entity_id) = entity_extract_ids($parent_entity_type, $parent_entity);
+            apachesolr_attachments_add_file_usage($file, $parent_entity_type, $parent_entity_id);
+          }
+        }
+      }
+    }
+  }
+}
+
+function apachesolr_attachments_field_attach_delete($parent_entity_type, $parent_entity) {
+  // Not all entities sent through this function have the same
+  // syntax and/or content. We only check entities that have a type.
+  // This excludes comments, so if there would be a file entity atttached to
+  // a comment, this would not be picked up.
+  // TODO: If you are a entity magician, please improve
+  if (isset($parent_entity->type)) {
+    // Check if the deleted entity had a file attached
+    foreach (field_info_instances($parent_entity_type, $parent_entity->type) as $instance) {
+      $field_info = field_info_field($instance['field_name']);
+      if ($field_info['type'] == 'file') {
+        // Include the file after the if, otherwise it'll get included everywhere
+        module_load_include('inc', 'apachesolr_attachments', 'apachesolr_attachments.index');
+
+        $items = field_get_items($parent_entity_type, $parent_entity, $field_info['field_name']);
+        if(!empty($items)) {
+          foreach ($items as $file_info) {
+            $file = file_load($file_info['fid']);
+            // Discard empty entities
+            if (empty($file)) {
+              continue;
+            }
+            // Retrieve parent entity id and add its file usage
+            list($parent_entity_id) = entity_extract_ids($parent_entity_type, $parent_entity);
+            apachesolr_attachments_add_file_usage($file, $parent_entity_type, $parent_entity_id);
+          }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Callback function for file search results.
+ *
+ * @param stdClass $doc
+ *   The result document from Apache Solr.
+ * @param array $result
+ *   The result array for this record to which to add.
+ */
+function apachesolr_attachments_file_result($doc, &$result, &$extra) {
+  $doc->uid = $doc->is_uid;
+  $result += array(
+    'type' => t('File attachment'),
+    'user' => theme('username', array('account' => $doc)),
+    'date' => isset($doc->created) ? $doc->created : 0,
+    'node' => $doc,
+    'file' => $doc,
+    'uid' => $doc->is_uid,
+  );
+}
+
+/**
+ * Implements hook_theme().
+ */
+function apachesolr_attachments_theme() {
+  return array(
+    'apachesolr_search_snippets__file' => array(
+      'variables' => array('doc' => NULL, 'snippets' => array()),
+    ),
+  );
+}
+
+/**
+ * Preprocess function for theme_apachesolr_search_snippets__file().
+ */
+function apachesolr_attachments_preprocess_apachesolr_search_snippets__file(&$vars) {
+  // Call the standard preprocess function for search snippets so that
+  // $vars['flattened_snippets'] will be defined.
+  // @todo This assumes apachesolr_search.module is enabled, but it's not
+  //likely this theme function will ever be called if it isn't.
+  apachesolr_search_preprocess_apachesolr_search_snippets($vars);
+}
+
+/**
+ * @todo Vastly improve this theming function
+ * @param type $vars
+ * @return type
+ */
+function theme_apachesolr_search_snippets__file($vars) {
+  $doc = $vars['doc'];
+  $snippets = $vars['flattened_snippets'];
+  $parent_entity_links = array();
+
+  // Retrieve our parent entities. They have been saved as
+  // a small serialized entity
+  foreach ($doc->zm_parent_entity as $parent_entity_encoded) {
+    $parent_decoded = (object) drupal_json_decode($parent_entity_encoded);
+
+    // Extract entity id from parent. List fetches the first item from the array.
+    list($id) = entity_extract_ids($parent_decoded->entity_type, $parent_decoded);
+
+    // Load parent entity
+    $load = entity_load($parent_decoded->entity_type, array($id));
+    $parent_entity = array_shift($load);
+
+    $parent_entity_uri = entity_uri($parent_decoded->entity_type, $parent_entity);
+    $parent_entity_uri['options']['absolute'] = TRUE;
+    $parent_label = entity_label($parent_decoded->entity_type, $parent_entity);
+    $parent_entity_links[] = l($parent_label, $parent_entity_uri['path'], $parent_entity_uri['options']);
+  }
+
+  if (module_exists('file')) {
+    $file_type = t('!icon @filemime', array('@filemime' => $doc->ss_filemime, '!icon' => theme('file_icon', array('file' => (object) array('filemime' => $doc->ss_filemime)))));
+  }
+  else {
+    $file_type = t('@filemime', array('@filemime' => $doc->ss_filemime));
+  }
+
+  return implode(' ... ', $snippets) . '<span>' . $file_type . ' <em>attached to:</em>' . implode(', ', $parent_entity_links) . '</span>';
+}
+
+/**
+ * Provides a default list of filename extensions to exclude from the index.
+ *
+ * @return
+ *   An array of file extensions.
+ */
+function apachesolr_attachments_default_excluded() {
+  $default = array('aif', 'art', 'avi', 'bmp', 'gif', 'ico', 'jpg', 'mov', 'mp3', 'mp4', 'mpg', 'oga', 'ogv', 'png', 'psd', 'ra', 'ram', 'rgb', 'tif', 'wmv');
+  return $default;
+}
+
+/**
+ * Implements hook_facetapi_searcher_info_alter().
+ */
+function apachesolr_attachments_facetapi_searcher_info_alter(array &$searcher_info) {
+  foreach ($searcher_info as $index => $info) {
+    $searcher_info[$index]['types'][] = 'file';
+  }
+}
+
+/**
+ * Implements hook_facetapi_facet_info_alter().
+ */
+function apachesolr_attachments_facetapi_facet_info_alter(&$facet_info, $searcher_info) {
+  // Ensure that file entities will be correctly included in the list when
+  // filtering by bundle. Since facetapi_map_bundle() defaults to the 'node'
+  // entity when none are set, we need to explicitly include that when the list
+  // starts off empty.
+  if (!empty($facet_info['bundle']['map options']['entities'])) {
+    $facet_info['bundle']['map options']['entities'][] = 'file';
+  }
+  else {
+    $facet_info['bundle']['map options']['entities'] = array('node', 'file');
+  }
+}
+
+class ApachesolrAttachmentsEntityFieldQuery extends EntityFieldQuery {
+  // Extra added fields to the query
+  private $addedFields = array();
+
+  /**
+  * Finishes the query.
+  *
+  * Adds tags, metaData, range and returns the requested list or count.
+  *
+  * @param SelectQuery $select_query
+  *   A SelectQuery which has entity_type, entity_id, revision_id and bundle
+  *   fields added.
+  * @param $id_key
+  *   Which field's values to use as the returned array keys.
+  *
+  * @return
+  *   See EntityFieldQuery::execute().
+  */
+  function finishQuery($select_query, $id_key = 'entity_id') {
+    foreach ($this->tags as $tag) {
+      $select_query->addTag($tag);
+    }
+    foreach ($this->metaData as $key => $object) {
+      $select_query->addMetaData($key, $object);
+    }
+    $select_query->addMetaData('entity_field_query', $this);
+    if ($this->range) {
+      $select_query->range($this->range['start'], $this->range['length']);
+    }
+    if ($this->count) {
+      return $select_query->countQuery()->execute()->fetchField();
+    }
+    $return = array();
+
+    foreach($this->addedFields as $addedField) {
+      $fields = $select_query->getFields();
+      if (!empty($addedField['field_name'])) {
+        $column = $addedField['field_name'] . '_' . $addedField['column'];
+        $column_alias = $addedField['field_name'] . '_' . $addedField['column_alias'];
+      }
+      else {
+        $column = $addedField['column'];
+        $column_alias = $addedField['column_alias'];
+      }
+      $select_query->addField($fields['entity_id']['table'], $column, $column_alias);
+    }
+
+
+    foreach ($select_query->execute() as $partial_entity) {
+      $bundle = isset($partial_entity->bundle) ? $partial_entity->bundle : NULL;
+      $entity = entity_create_stub_entity($partial_entity->entity_type, array($partial_entity->entity_id, $partial_entity->revision_id, $bundle));
+      // This is adding the file id using our metaData field.
+      $entity->extraFields = $partial_entity;
+      //$entity->file_fid = $partial_entity->{$this->metaData['field_key']};
+      $return[$partial_entity->entity_type][$partial_entity->$id_key . '_' . $partial_entity->$column] = $entity;
+      $this->ordered_results[] = $partial_entity;
+    }
+    return $return;
+  }
+  public function addExtraField($field_name, $column, $column_alias = NULL) {
+    $this->addedFields[] = array(
+      'field_name' => $field_name,
+      'column' => $column,
+      'column_alias' => $column_alias,
+    );
+    return $this;
+  }
+}

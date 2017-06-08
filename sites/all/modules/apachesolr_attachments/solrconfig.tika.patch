@@ -1,0 +1,22 @@
+diff --git a/solrconfig.xml b/solrconfig.xml
+index 2525202..fecb944 100644
+--- a/solrconfig.xml
++++ b/solrconfig.xml
+@@ -1340,6 +1340,17 @@
+     </arr>
+   </requestHandler>
+ 
++  <!-- An extract-only path for accessing the tika utility -->
++  <requestHandler name="/extract/tika" class="org.apache.solr.handler.extraction.ExtractingRequestHandler" startup="lazy">
++
++    <lst name="defaults">
++    </lst>
++    <!-- This path only extracts - never updates -->
++    <lst name="invariants">
++      <bool name="extractOnly">true</bool>
++    </lst>
++  </requestHandler>
++
+   <!-- Highlighting Component
+ 
+        http://wiki.apache.org/solr/HighlightingParameters

@@ -1,0 +1,13 @@
+name = Apache Solr search attachments
+description = Search file attachments with Solr
+dependencies[] = apachesolr
+package = Search Toolkit
+core = 7.x
+configure = admin/config/search/apachesolr/attachments
+
+; Information added by Drupal.org packaging script on 2015-02-27
+version = "7.x-1.4"
+core = "7.x"
+project = "apachesolr_attachments"
+datestamp = "1425005884"
+

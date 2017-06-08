@@ -1,0 +1,63 @@
+Apache Solr Attachments 7.x-1.x-dev, xxxx-xx-xx
+------------------------------
+
+Apache Solr Attachments 7.x-1.4, 2015-02-25
+------------------------------
+#2195095 by thtas, David_Rothstein: Error when trying using a file field on entities on than nodes
+#1782936 by jhedstrom, jessehs, Cottser: Index file entities be with access grants from parent node if the apachesolr_access module is enabled
+#1251308 by posulliv, Nick_vh, janusman, jhedstrom, jessehs: File Size Limit
+#1251308 by posulliv, Nick_vh, jessehs, jhedstrom | aLearningGuy: Added File Size Limit.
+#2014721 by David_Rothstein: Apachesolr_attachments_node_solr_document() should include the filename as part of what it indexes.
+#1972466 by ñull: Feedback or statistics / How is it indexed?.
+1933184 by mr.baileys: Fixed Notice: Undefined variable when no indexable bundles/entities.
+#1919996 by mr.baileys: Fixed Configure-link missing on modules-page.
+#1310136 by janusman, TravisCarden | lambic: Fixed hook_nodeapi is slow.
+#1853836 by Nick_vh, dasha_v, milesw, drasgardian: Fixed failure on indexing 4-byte character.
+#1904534 by Laurent_, johnbburg, gabesullice: Fixed Module only indexing the last file.
+
+Apache Solr Attachments 7.x-1.3, 2013-08-07
+------------------------------
+#1941660 by sirko_el: Fixed Warning while processing node with empty attachments.
+#1980750 by David_Rothstein, posulliv, tim-e, Echofive | _randy: Fixed Array to String error when certain file attachments appear in the search results.
+#2059119 by solquimpo, Nick_vh: Patch files to make apachesolr_attachments() work with apachesolr 7.x-1.3.
+#561862 by neclimdul, drasgardian, franz, schultetwin, Steven Jones, james.williams, GaëlG, nrahlstr, tauno | wuwei23: Added Search results: possible to return node and not attachment?.
+
+
+Apache Solr Attachments 7.x-1.2, 2012-07-06
+------------------------------
+#1672768 by Nick_vh | pjcdawkins: Fixed apachesolr_attachments_update_7003() gives unknown column error.
+#1632474 by Nick_vh | ensemblevide: Search results : no files appear.
+#1669728 by Nick_vh | kevinlabory: Fixed 'Clear the attachment text extraction cache" issue .
+#1251308 by posulliv, Nick_vh, janusman, jhedstrom, jessehs: File Size Limit
+
+Apache Solr Attachments 7.x-1.1, 2012-07-03
+------------------------------
+#1580100 by ryantollefson: Fixed Typo in readme.txt.
+#1612164 by tauno: Fixed Errors when saving entities without bundles.
+#1663298 + #1606978 + #1651260 Media support + some errors on comment entity + improved algorithm
+#1566252 by netw3rker: Fixed Fatal error: Call to undefined function apachesolr_attachments_solr_reindex() .
+#1577670 by heacu: Fixed $entity_type() not defined in apachesolr_attachments_apachesolr_file_exclude().
+#1569406 by Stefan Freudenberg, heacu: Fixed Wrong relationship between files and nodes in apachesolr_index_entities_file().
+#1538212 by Nick_vh: Fixed use the exclude functionality instead of the status callback functionality.
+#1536760 by Nick_vh: Added a test button to verify your text extraction process. Follow up
+#1536760 by Nick_vh: Added a test button to verify your text extraction process.
+#1532008 by Nick_vh: Added Clean index table algorithm is needed.
+#1531988 by Nick_vh: Added Keep extracted text in cache longer. Even when re-index is issued.
+#1393540 by Nick_vh, drasgardian, pwolanin | ericmulder1980: Fixed Upgrade apachesolr_attachments() to co-operate with latest beta of apachesolr.
+#1515530 by pwolanin: update README and admin page for newer tika versions.
+#1189864 by jpmckinney: More verbose logging during text extraction.
+#1188014 by drasgardian: Argument 2 passed to drupal_http_request() must be an array.
+#1162252 by steveoriol, jpmckinney: Allow UTF-8 characters in filenames.
+
+Apache Solr Attachments 7.x-1.0, 2011-05-26
+------------------------------
+#1162608 by rdebieux, jpmckinney: Remove file from index if node unpublished.
+#1161802 by setvik, jpmckinney: apachesolr_attachments_update_index is never called so no files indexed.
+#1162492 by jpmckinney: Add helpful message for Windows users.
+#1156112 by jpmckinney: Add apachesolr_attachments.index.inc.
+#1156110 by jpmckinney: Catch up to apachesolr HEAD.
+#1156064 by jpmckinney: Fix typos in variable names.
+#1126668 by TomA: Cron fails because of class name change in Apache Solr Search Integration.
+#1100306 by jpmckinney: Search by filename.
+#1097086 by jpmckinney: Harmonize with new apachesolr schema.xml.
+#1034010 by jpmckinney, matason, pwolanin: Upgrade to Drupal 7 (D7).
