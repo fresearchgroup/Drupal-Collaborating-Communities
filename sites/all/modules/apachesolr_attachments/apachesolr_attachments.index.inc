@@ -113,7 +113,8 @@ function apachesolr_attachments_extract_using_tika($filepath) {
 
   $tika = realpath($tika_path . '/' . variable_get('apachesolr_attachments_tika_jar', 'tika-app-1.1.jar'));
   if (!$tika || !is_file($tika)) {
-    throw new Exception(t('Invalid path or filename for tika application jar.'));
+    throw new Exception(t('Invalid path or filename for tika application jar.'.$tika));
+	//throw new Exception(t($tika));
   }
 
   $cmd = '';

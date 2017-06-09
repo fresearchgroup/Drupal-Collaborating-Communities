@@ -1,0 +1,41 @@
+diff --git a/apachesolr_attachments.install b/apachesolr_attachments.install
+index 2b7d129..b329e2f 100644
+--- a/apachesolr_attachments.install
++++ b/apachesolr_attachments.install
+@@ -96,13 +96,15 @@ function apachesolr_attachments_schema() {
+           'description' => t('The type of entity.'),
+           'type' => 'varchar',
+           'length' => 128,
+-          'not null' => FALSE,
++		   'not null' => TRUE,
++		   'default' => '',
+         ),
+         'parent_entity_id' => array(
+           'description' => t('The type of the parent entity.'),
+           'type' => 'int',
+           'unsigned' => TRUE,
+-          'not null' => FALSE,
++          'not null' => TRUE,
++		   'default' => '0',
+         ),
+         'hash' => array(
+           'description' => "A hash of the file's body, to check for changes.",
+@@ -218,13 +220,15 @@ function apachesolr_attachments_update_7003() {
+           'description' => t('The type of entity.'),
+           'type' => 'varchar',
+           'length' => 128,
+-          'not null' => FALSE,
++          'not null' => TRUE,
++		   'default' => '',
+         ),
+         'parent_entity_id' => array(
+           'description' => t('The type of the parent entity.'),
+           'type' => 'int',
+           'unsigned' => TRUE,
+-          'not null' => FALSE,
++          'not null' => TRUE,
++          'default' => '0',
+         ),
+         'hash' => array(
+           'description' => "A hash of the file's body, to check for changes.",
+

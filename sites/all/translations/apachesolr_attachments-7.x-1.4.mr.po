@@ -1,0 +1,24 @@
+# Marathi translation of Apache Solr Attachments (7.x-1.4)
+# Copyright (c) 2016 by the Marathi translation team
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Apache Solr Attachments (7.x-1.4)\n"
+"POT-Creation-Date: 2016-02-21 09:39+0000\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Language-Team: Marathi\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+
+msgid "Actions"
+msgstr "कृती"
+msgid "Confirm"
+msgstr "नक्की करा"
+msgid "Cancel"
+msgstr "रद्द"
+msgid "General"
+msgstr "साधारण"
+msgid "Bundle"
+msgstr "बंडल"

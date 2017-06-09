@@ -1,0 +1,24 @@
+# Gujarati translation of Apache Solr Attachments (7.x-1.4)
+# Copyright (c) 2016 by the Gujarati translation team
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Apache Solr Attachments (7.x-1.4)\n"
+"POT-Creation-Date: 2016-02-22 15:06+0000\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Language-Team: Gujarati\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+
+msgid "Actions"
+msgstr "ક્રિયાઓ"
+msgid "Confirm"
+msgstr "ખાતરી કરો"
+msgid "Cancel"
+msgstr "રદ કરો"
+msgid "General"
+msgstr "સામાન્ય"
+msgid "Bundle"
+msgstr "બંડલ"
