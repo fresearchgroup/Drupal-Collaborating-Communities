@@ -1,0 +1,22 @@
+# Malayalam translation of OpenCalais (7.x-1.3)
+# Copyright (c) 2016 by the Malayalam translation team
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: OpenCalais (7.x-1.3)\n"
+"POT-Creation-Date: 2016-08-11 00:44+0000\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Language-Team: Malayalam\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+
+msgid "Remove"
+msgstr "ഒഴിവാക്കുക"
+msgid "Overview"
+msgstr "അവലോകനം"
+msgid "Category"
+msgstr "വര്‍ഗ്ഗം"
+msgid "Settings"
+msgstr "ക്രമീകരണങ്ങള്‍"
