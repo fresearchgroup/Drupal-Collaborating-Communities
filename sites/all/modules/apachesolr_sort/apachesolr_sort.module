@@ -1,0 +1,247 @@
+<?php
+/**
+ * Implementation of hook_menu().
+ * To enable sorting and removal of the sort by fields
+ */
+function apachesolr_sort_menu() {
+    $items['admin/config/search/apachesolr/sort'] = array(
+    'title'              => 'Sorting',
+    'description'        => 'Sorting settings',
+    'page callback'      => 'drupal_get_form',
+    'page arguments'     => array('apachesolr_sort_page_form'),
+    'access arguments'   => array('administer site configuration'),
+    'file'               => 'apachesolr_sort.admin.inc',
+    'weight'             => 10,
+    'type'               => MENU_LOCAL_TASK,
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_apachesolr_prepare_query().
+ * Used to modify our sorts
+ */
+function apachesolr_sort_apachesolr_query_prepare($query) {
+
+  $sorts = $query->getAvailableSorts();
+  foreach ($sorts as $sort_key => $sort) {
+    if (!variable_get('apachesolr_sort_sort_' . $sort_key, TRUE)) {
+      $query->removeAvailableSort($sort_key);
+    }
+  }
+  $sorts = $query->getAvailableSorts();
+  foreach($sorts as $sort_key => $sort) {
+    $weight = variable_get('apachesolr_sort_sort_weight_' . $sort_key, 0);
+    $sorts[$sort_key]['weight'] = $weight;
+  }
+  uasort($sorts, "apachesolr_sort_weight_sort");
+  $query->setAvailableSorts($sorts);
+
+  $sort_key = variable_get('sort_default_key', '');
+  $sort_direction = variable_get('sort_default_direction', 'asc');
+  $original_sort = $query->getSolrsortUrlQuery();
+  $params = $query->getSolrParams();
+  if (!empty($sort_key) && empty($original_sort) && empty($params['q'])) {
+    $query->setSolrsort($sort_key, $sort_direction);
+  }
+}
+
+/**
+ * Implements hook_apachesolr_query_alter
+ * 
+ * Many thanks to ChristianAdamski for the initial grouping code part!
+ */
+function apachesolr_sort_apachesolr_query_alter(DrupalSolrQueryInterface $query) {
+  $env_id = $query->solr('getId');
+  $process_callback = apachesolr_environment_variable_get($env_id, 'process_response_callback', 'apachesolr_search_process_response');
+  $group_field = apachesolr_environment_variable_get($env_id, 'group_field', 'tos_name');
+  $group_limit = apachesolr_environment_variable_get($env_id, 'group_limit', '2');
+  if ($process_callback == "apachesolr_sort_process_response") {
+    $query->addParams(
+      array(
+        'group' => 'true',
+        'group.field' => $group_field,
+        'group.limit' => $group_limit,
+        'group.ngroups' => 'true',
+        'group.sort' => 'entity_id desc',
+        'group.facet' => 'true',
+      )
+    );
+    // start params are different. You should move similar to the group.limit amount
+    if (isset($query->page)) {
+      $query->removeParam('start');
+    }
+    if (isset($query->page)) {
+      $query->addParam('group.offset', $query->page * $group_limit);
+    }
+  }
+}
+
+function apachesolr_sort_process_response($response, DrupalSolrQueryInterface $query) {
+  $env_id = $query->solr('getId');
+  $group_field = apachesolr_environment_variable_get($env_id, 'group_field', 'tos_name');
+  $total = $response->grouped->$group_field->matches;
+  $grouped_results = array();
+  foreach ($response->grouped->$group_field->groups as $groupId => $grouped_response) {
+    $response_individual = new stdClass();
+    $response_individual->response = $grouped_response->doclist;
+    $response_individual->highlighting = $response->highlighting;
+    $results = apachesolr_search_process_response($response_individual, $query);
+    foreach ($results as &$result) {
+      $result['fields']['groupId'] = $groupId;
+      $result['fields']['groupValue'] = $grouped_response->groupValue;
+    }
+    $grouped_results = array_merge($grouped_results, $results);
+  }
+
+  $searcher = $query->getSearcher();
+  $response->response = new stdClass();
+  $response->response->numFound = $total;
+  // The response is cached so that it is accessible to the blocks and anything
+  // else that needs it beyond the initial search.
+  apachesolr_static_response_cache($searcher, $response);
+
+  return $grouped_results;
+}
+
+function apachesolr_sort_preprocess_search_result(&$variables) {
+  if (isset($variables['result']['fields']['groupValue'])) {
+    $variables['classes_array'][] = "solr-grouped";
+    if (isset($variables['result']['fields']['groupValue'])) {
+      $identifier = drupal_clean_css_identifier($variables['result']['fields']['groupValue']);
+      $variables['classes_array'][] = "solr-group-".$identifier;
+    }
+  }
+}
+
+function apachesolr_sort_weight_sort($a, $b) {
+  return strcmp($a['weight'], $b['weight']);
+}
+
+
+/**
+ * Implements hook_block_info().
+ */
+function apachesolr_sort_block_info() {
+  $blocks['sort'] = array(
+    'info' => t('Apache Solr Select Sort'),
+    'cache' => DRUPAL_CACHE_PER_PAGE,
+  );
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function apachesolr_sort_block_view($delta) {
+  if ('sort' == $delta) {
+    $environments = apachesolr_load_all_environments();
+    foreach ($environments as $env_id => $environment) {
+      if (apachesolr_has_searched($env_id) && !apachesolr_suppress_blocks($env_id)) {
+        $response = NULL;
+
+        // Get the query and response. Without these no blocks make sense.
+        if ($query = apachesolr_current_query($env_id)) {
+          $response = apachesolr_static_response_cache($query->getSearcher());
+        }
+        if (!$response || $response->response->numFound < 2) {
+          return;
+        }
+
+        // Gets apachesolr_sort_apachesolr_sort_form() arguments.
+        module_load_include('inc', 'apachesolr_sort', 'apachesolr_sort.admin');
+        $new_query = clone $query;
+        $sorts = $query->getAvailableSorts();
+        $solrsort = $query->getSolrsort();
+
+        // Returns the sort form.
+        return array(
+          'subject' => t('Sort by'),
+          'content' => drupal_get_form('apachesolr_sort_sort_form_', $new_query, $sorts, $solrsort),
+        );
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ *
+ * Adds a "make multisite" option in the settings of any environment
+ */
+function apachesolr_sort_form_apachesolr_environment_edit_form_alter(&$form, &$form_state, $form_id) {
+  if (!count($form_state['build_info']['args'])) {
+    $form['make_grouped'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Make this environment grouped-enable'),
+      '#default_value' => false,
+      '#disabled' => true,
+      '#description' => t('You must save your new environment before you can set grouped-enable.'),
+    );
+    return;
+  }
+
+  $environment = reset($form_state['build_info']['args']);
+  $process_callback = apachesolr_environment_variable_get($environment['env_id'], 'process_response_callback', 'apachesolr_search_process_response');
+  $is_grouped = ($process_callback == 'apachesolr_search_process_response') ? FALSE : TRUE;
+  $group_field = apachesolr_environment_variable_get($environment['env_id'], 'group_field', 'tos_name');
+  $group_limit = apachesolr_environment_variable_get($environment['env_id'], 'group_limit', '2');
+  $form['make_grouped'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Make this environment grouped-enable'),
+    '#default_value' => $is_grouped,
+  );
+  $form['group_limit'] = array(
+    '#type' => 'textfield',
+    '#title' => t('How many results per group'),
+    '#default_value' => $group_limit,
+    '#dependency' => array(
+      'edit-make-grouped' => array(1),
+    ),
+  );
+  try {
+    $service = new DrupalApacheSolrService($environment['url'], $environment['env_id']);
+    $luke = $service->getLuke();
+    $fields = (array)$luke->fields;
+  }
+  catch (Exception $e) {
+    drupal_set_message('Could not retrieve field list from Solr server', 'error');
+    $fields = array();
+  }
+  $items = array();
+  foreach ($fields as $key => $field) {
+    if (!in_array($field->type, array('string', 'text', 'sortString'))) {
+      continue;
+    }
+    $items[$key] = $key;
+  }
+  $form['group_field'] = array(
+    '#title' => t("Choose a field to group by"),
+    '#type' => 'select',
+    '#options' => $items,
+    '#default_value' => $group_field,
+    '#dependency' => array(
+      'edit-make-grouped' => array(1),
+    ),
+  );
+  $form['actions']['save']['#submit'][] = 'apachesolr_sort_environment_edit_submit';
+}
+
+/**
+ * Submit callback for saving an environment to make it multisite capabe
+ */
+function apachesolr_sort_environment_edit_submit($form, &$form_state) {
+  // Enable or disable multisite
+  if ($form_state['values']['make_grouped']) {
+    apachesolr_environment_variable_set($form_state['values']['env_id'], 'process_response_callback', 'apachesolr_sort_process_response');
+  }
+  else {
+    apachesolr_environment_variable_del($form_state['values']['env_id'], 'process_response_callback');
+  }
+  if ($form_state['values']['group_field']) {
+    apachesolr_environment_variable_set($form_state['values']['env_id'], 'group_field', $form_state['values']['group_field']);
+  }
+  if ($form_state['values']['group_limit']) {
+    apachesolr_environment_variable_set($form_state['values']['env_id'], 'group_limit', $form_state['values']['group_limit']);
+  }
+}

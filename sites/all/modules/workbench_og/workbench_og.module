@@ -1,0 +1,162 @@
+<?php
+
+/**
+ * @file
+ * Module file for integrating OG with Workbench Moderation
+ */
+
+
+/**
+ * Implements hook_workbench_moderation_states_next_alter().
+ *
+ * Defines new states according to user permissions.
+ */
+function workbench_og_workbench_moderation_states_next_alter(&$states, $current_state, $context) {
+
+  // Node still does not exist, it is being created.
+  if (!isset($context['node']->nid)) {
+    return;
+  }
+
+  // Get group nodes.
+  $groups = og_get_entity_groups($entity_type = 'node', $context['node'], array(OG_STATE_ACTIVE));
+
+  // If we are creating a node, we don't have groups associated yet.
+  if (empty($groups)) {
+    return;
+  }
+
+  $groups = node_load_multiple(array_values($groups['node']));
+  $possible_states = workbench_moderation_state_labels();
+
+  foreach ($groups as $group) {
+    foreach ($possible_states as $state_key => $state_name) {
+
+      if (!strcmp($state_key, $current_state)) {
+        continue;
+      }
+
+      $permission = t('moderate content from @from_state to @to_state',
+                      array('@from_state' => $current_state, '@to_state' => $state_key));
+
+      if (og_user_access_entity($permission, 'node', $group)) {
+        $states[$state_key] = $state_name;
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_og_permission().
+ *
+ * Defines new permissions in OG that allows to define new transitions.
+ */
+function workbench_og_og_permission() {
+  $perms = array();
+  $transitions = workbench_moderation_transitions();
+
+  // Test all possible transitions.
+  foreach ($transitions as $transition) {
+    $from_state = $transition->from_name;
+    $to_state = $transition->to_name;
+
+    $from_state_label = workbench_moderation_state_label($from_state);
+    $to_state_label = workbench_moderation_state_label($to_state);
+
+    // Always set a permission to perform all moderation states.
+    $perms["moderate content from $from_state to $to_state"] = array(
+      'title' => t('Moderate all content from @from_state to @to_state',
+          array('@from_state' => $from_state_label, '@to_state' => $to_state_label)));
+  }
+
+  /* Define a permission to view all group unpublished content to allow users
+  to see content they can moderate */
+  $perms['View all unpublished content'] = array(
+    'title' => t('View all unpublished group content'));
+
+  return $perms;
+}
+
+/**
+ * Implements hook_node_access_records().
+ *
+ * This function is responsible to define the access records that allow users
+ * of the same group to access unpublished nodes. Grants are only set if node
+ * is unpublished.
+ */
+function workbench_og_node_access_records($node) {
+
+  if (!isset($node->workbench_moderation['my_revision'])) {
+    return;
+  }
+
+  // If revision is not published we need to grant access to group.
+  if (!$node->workbench_moderation['my_revision']->published) {
+
+    $grants = array();
+    // Fet the groups defined in the node.
+    $groups = og_get_entity_groups($entity_type = 'node', $node);
+
+    // For each group set a grant.
+    if (isset ($groups['node']) && !empty($groups)) {
+      foreach ($groups['node'] as $gid => $value) {
+        $grants[] = array(
+          'realm' => 'workbench_moderation_og',
+          'gid' => $value,
+          'grant_view' => 1,
+          'grant_update' => 0,
+          'grant_delete' => 0,
+          'priority' => 2,
+        );
+      }
+      return $grants;
+    }
+  }
+}
+
+/**
+ * Implements hook_node_grants().
+ *
+ * Will pass grants to every group the user belongs to
+ */
+function workbench_og_node_grants($account, $op) {
+
+  $grants = array();
+
+  // Gets the user groups.
+  $group_ids = og_get_entity_groups('user', $account, array(OG_STATE_ACTIVE));
+
+  // Foreach group that user is a member.
+  if (isset($group_ids) && !empty($group_ids['node'])) {
+
+    $groups = entity_load('node', array_values(reset($group_ids)));
+    foreach ($groups as $group_id => $group) {
+
+      /* check if the user can access unpublished content in this group. If that
+      is correct, access is granted */
+      if (og_user_access_entity('View all unpublished content', 'node', $group)) {
+        $grants['workbench_moderation_og'][] = $group_id;
+      }
+    }
+  }
+
+  return $grants;
+}
+
+/**
+ * Implements hook_help().
+ */
+function workbench_og_help($path, $arg) {
+  switch ($path) {
+    case 'admin/config/workbench/moderation':
+      if (module_exists('og_ui')) {
+        return '<p>' . t('Workbench moderation OG is active. You will find new
+          permissions available to configure in !link.', array(
+            '!link' => l(t('OG Permissions overview'),
+                       'admin/config/group/permissions'))) . '</p>';
+      }
+      else {
+        return '<p>' . t('Workbench moderation OG is active. However you need to configure its permissions and workflow using OG Ui Module which is not active. Please enable it.') . '</p>';
+      }
+  }
+}

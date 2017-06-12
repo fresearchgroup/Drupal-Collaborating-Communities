@@ -1,0 +1,26 @@
+# Oriya translation of Administration menu (7.x-3.0-rc5)
+# Copyright (c) 2014 by the Oriya translation team
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Administration menu (7.x-3.0-rc5)\n"
+"POT-Creation-Date: 2014-12-22 07:33+0000\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Language-Team: Oriya\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+
+msgid "Search"
+msgstr "ସନ୍ଧାନ କରନ୍ତୁ"
+msgid "Weight"
+msgstr "ଓଜନ"
+msgid "Log out"
+msgstr "ଲଗ ଆଉଟ"
+msgid "Permissions"
+msgstr "ଅନୁମତି"
+msgid "Run updates"
+msgstr "ଅଦ୍ୟତନ ଚଳାନ୍ତୁ"
+msgid "@project issue queue"
+msgstr "@project ସମସ୍ୟା ଧାଡି"

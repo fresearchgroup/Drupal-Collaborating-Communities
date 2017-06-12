@@ -1,0 +1,13 @@
+name = Workbench OG
+description = Provides content moderation services for OG
+package = Workbench
+core = 7.x
+dependencies[] = og (2.x)
+dependencies[] = workbench_moderation
+
+; Information added by drupal.org packaging script on 2012-11-11
+version = "7.x-2.0-beta1"
+core = "7.x"
+project = "workbench_og"
+datestamp = "1352673485"
+

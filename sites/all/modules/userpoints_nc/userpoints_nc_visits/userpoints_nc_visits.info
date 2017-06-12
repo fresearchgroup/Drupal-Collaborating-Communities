@@ -1,0 +1,14 @@
+name = Userpoints Visits
+description = Gives points to content authors when their content is visited
+package = Userpoints
+dependencies[] = userpoints
+core = 7.x
+files[]=userpoints_nc_visits.test
+configure=admin/config/people/userpoints/settings
+
+; Information added by drupal.org packaging script on 2011-11-12
+version = "7.x-1.0"
+core = "7.x"
+project = "userpoints_nc"
+datestamp = "1321089647"
+

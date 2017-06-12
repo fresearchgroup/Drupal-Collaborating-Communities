@@ -1,0 +1,24 @@
+# Gujarati translation of Voting API (7.x-2.12)
+# Copyright (c) 2016 by the Gujarati translation team
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Voting API (7.x-2.12)\n"
+"POT-Creation-Date: 2016-11-19 11:34+0000\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Language-Team: Gujarati\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+
+msgid "Value"
+msgstr "મુલ્ય"
+msgid "User"
+msgstr "વપરાશકર્તા"
+msgid "Never"
+msgstr "કદી નહી"
+msgid "Appearance"
+msgstr "દેખાવ"
+msgid "Votes"
+msgstr "મત"

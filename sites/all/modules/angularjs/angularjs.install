@@ -1,0 +1,34 @@
+<?php
+/**
+ * Implements hook_install
+ */
+function angularjs_install() {
+  variable_set('angularjs_version', ANGULARJS_DEFAULT_VERSION);
+  variable_set('angularjs_files', angularjs_version_files(ANGULARJS_DEFAULT_VERSION));
+  variable_set('angularjs_compression_type', '');
+  variable_set('angularjs_cdn', '1');
+}
+
+/**
+ * Implements hook_uninstall
+ */
+function angularjs_uninstall() {
+  foreach ( array (
+    'angularjs_version',
+    'angularjs_files',
+    'angularjs_compression_type',
+    'angularjs_cdn' 
+  ) as $variable ) {
+    variable_del($variable);
+  }
+}
+
+/**
+ * Set initial AngularJS variables
+ */
+function angularjs_update_7000() {
+  variable_set('angularjs_version', ANGULARJS_DEFAULT_VERSION);
+  variable_set('angularjs_files', angularjs_version_files(ANGULARJS_DEFAULT_VERSION));
+  variable_set('angularjs_compression_type', '');
+  variable_set('angularjs_cdn', '1');
+}

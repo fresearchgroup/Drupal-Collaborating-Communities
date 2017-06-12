@@ -1,0 +1,106 @@
+
+<?php
+
+ 
+function form_module_permission(){
+  return array(
+     'submit form_example' => array(
+       'title' => 'Submit form_module',
+       'description' => 'Submit the form_module'
+      )
+    );
+}
+
+
+  function form_module_init(){
+
+
+        //drupal_set_message("Hello Dummy world");
+  }
+
+
+  function form_module_menu(){
+
+        $items = array();
+
+        $items['form_module'] = array(
+
+                   'title' => 'My Form module page',
+                   'description' => 'Ola dummy users',
+                   'page callback' => 'drupal_get_form',
+                   'page arguments' => array('form_module_form'),
+                   'access callback' => 'user_access',
+                   'access arguments' => array('access content'),
+                   'type' => MENU_NORMAL_ITEM
+                   );
+
+        return $items;
+
+  }
+
+function form_module_form($form, &$form_state){
+  
+  $form = array();
+
+  $form['mynumber'] = array(
+             
+             '#type' => 'textfield',
+             '#title'=> 'Enter Roll'
+  );
+  
+  $form['student_name'] = array(
+             
+             '#type' => 'textfield',
+             '#title'=> 'Enter name'
+  );
+  $form['address'] = array(
+             
+             '#type' => 'textfield',
+             '#title'=> 'Enter address'
+  );
+  $form['qualification'] = array(
+             
+             '#type' => 'textfield',
+             '#title'=> 'Enter qualification'
+  );
+  $form['experience'] = array(
+             
+             '#type' => 'textfield',
+             '#title'=> 'Enter experience'
+  );
+
+   $form['submit'] = array(
+             
+             '#type' => 'submit',
+             '#value'=> 'Submit'
+  );
+  $form['#submit'][] = 'form_module_form_submit';
+  $form['#redirect'] = '';
+ 
+  return $form;
+}
+
+function form_module_form_validate($form, &$form_state) {
+ // print('<pre>'.print_r($form_state['values'],1).'</pre>');die();
+  if(!is_numeric($form_state['values']['mynumber'])) {
+    form_set_error('mynumber', 'You must enter a valid no.');
+     return FALSE;
+  }
+  return TRUE;
+}
+
+
+/*
+* Submit handler for the form module
+*/
+function form_module_form_submit($form, &$form_state) {
+//print('<pre>'.print_r($form_state['values'],1).'</pre>');die();
+    db_insert('form_module')->fields(array(
+         'mynumber'=> $form_state['values']['mynumber'],
+         'student_name' =>$form_state['values']['student_name'],
+         'address' => $form_state['values']['address'],
+         'qualification' => $form_state['values']['qualification'],
+         'experience' => $form_state['values']['experience'],
+      ))->execute();
+    drupal_set_message("Data has been added");
+}

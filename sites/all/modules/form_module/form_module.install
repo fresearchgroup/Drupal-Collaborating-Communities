@@ -1,0 +1,66 @@
+<?php
+/*
+*  Implements hook schema
+*/
+function form_module_schema(){
+	
+	$schema = array();
+	$schema['form_module'] = array(
+    
+      'description' => 'Form table',
+      'fields' => array(
+       'student_id' => array(
+                
+          'description' => 'The primary key of student of a node',
+          'type' => 'serial',
+          'unsigned' => 'True',
+          'not null' => 'True',
+       ),
+       'mynumber' => array(
+                
+          'description' => 'The primary key of student of a node',
+          'type' => 'int',
+          'unsigned' => 'True',
+          'not null' => 'True',
+       ),
+        
+        'student_name' => array(
+                
+          'description' => 'The field to store student name',
+          'type' => 'varchar',
+          'length' => 100,
+          'not null' => 'True',
+          'default' => '',
+       ),
+       'address' => array(
+                
+          'description' => 'The field for storing address of student',
+          'type' => 'text',
+          'not null' => 'True',
+       ),
+       'qualification' => array(
+                
+          'description' => 'The field for storing qulification text',
+          'type' => 'varchar',
+          'length' => 100,
+          'not null' => 'True',
+          'default' => '',
+        ),
+       'experience' => array(
+                
+          'description' => 'The field for storing experience text',
+          'type' => 'varchar',
+          'length' => 100,
+          'not null' => 'True',
+          'default' => '',
+        ),
+      ),
+      'indexes' => array(
+
+       'form_module_mynumber' => array('mynumber'),
+      ),
+      'primary key' => array('student_id'),
+
+	);
+	return $schema;
+}

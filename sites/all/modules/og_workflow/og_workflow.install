@@ -1,0 +1,56 @@
+<?php
+// $Id$
+/**
+ * @file
+ * Workflow access installation.
+ */
+
+/**
+ * Implements hook_install().
+ */
+function og_workflow_install() { }
+
+/**
+ * Implements hook_uninstall().
+ */
+function og_workflow_uninstall() { }
+
+/**
+ * Implements hook_schema().
+ */
+function og_workflow_schema() {
+  $schema['og_workflow_transitions'] = array(
+    'description' => 'Organic groups workflow access tables',
+    'fields' => array(
+      'tid'        => array('type' => 'serial', 'not null' => TRUE),
+      'sid'        => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0, 'disp-width' => '10'),
+      'target_sid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0, 'disp-width' => '10'),
+      'roles'      => array('type' => 'varchar', 'length' => '255', 'not null' => FALSE)
+    ),
+    'primary key' => array('tid'),
+    'indexes' => array(
+      'sid' => array('sid'),
+      'target_sid' => array('target_sid')
+    ),
+  );
+  return $schema;
+}
+
+/**
+ * Store roles in a comma separated string and use 'author' instead of 'a'
+ * just like the workflow module does.
+ */
+function og_workflow_update_7200() {
+  $transitions = db_select('og_workflow_transitions', 'owt')
+      ->fields('owt')
+      ->execute();
+  while ($transition = $transitions->fetchObject()) {
+    $roles = str_split($transition->roles);
+    $roles = str_replace('a', 'author', $roles);
+    $roles = implode(',', $roles);
+    db_update('og_workflow_transitions')
+      ->fields(array('roles' => $roles))
+      ->condition('tid', $transition->tid)
+      ->execute();
+  }
+}

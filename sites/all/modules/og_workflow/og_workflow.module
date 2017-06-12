@@ -1,0 +1,495 @@
+<?php
+
+/**
+ * Move our implementation of hook_form_alter() to the end of the processing
+ * list.
+ */
+function og_workflow_module_implements_alter(&$implementations, $hook) {
+  if ($hook == 'form_alter') {
+    $group = $implementations['og_workflow'];
+    unset($implementations['og_workflow']);
+    $implementations['og_workflow'] = $group;
+  }
+}
+
+
+/**
+ * Register theme_og_workflow_admin_form() to be called for rendering the admin
+ * form.
+ */
+function og_workflow_theme() {
+  return array(
+    'og_workflow_admin_form' => array(
+      'render element' => 'form',
+    ),
+  );
+}
+
+
+/**
+ * Remove the path 'workflow/workflow/edit' defined by the workflow module from
+ * the menu system.
+ * Why?
+ */
+function og_workflow_menu_alter(&$items) {
+  unset($items['admin/config/workflow/workflow/edit']);
+}
+
+
+/**
+ * Define the paths for the menu system.
+ * What is "/edit/%/edit" for?
+ */
+function og_workflow_menu() {
+  $items['admin/config/workflow/workflow/edit/%'] = array(
+    'title' => 'Edit workflow',
+    'access arguments' => array('administer workflow'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('workflow_admin_ui_edit_form', 5),
+  );
+  $items['admin/config/workflow/workflow/edit/%/edit'] = array(
+    'title' => 'Edit workflow',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => 0,
+  );
+  $items['admin/config/workflow/workflow/edit/%/og'] = array(
+    'title' => 'Edit OG workflow',
+    'type' => MENU_LOCAL_TASK,
+    'access arguments' => array('administer workflow'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('og_workflow_admin_form', 5),
+    'weight' => 10,
+  );
+  /* waiting for workflow's better path menu hierarchy
+  $items['admin/config/workflow/workflow/%/og'] = array(
+    'title' => 'Edit organic groups workflow',
+    //'type' => MENU_LOCAL_TASK,
+    //'context' => MENU_CONTEXT_INLINE,
+    'access arguments' => array('administer workflow'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('og_workflow_admin_form', 4),
+  );
+  */
+  return $items;
+}
+
+
+/**
+ * Theme function for rendering the admin form.
+ */
+function theme_og_workflow_admin_form($variables) {
+  $form = $variables['form'];
+  $wid = $form['wid']['#value'];
+  // If we don't have a workflow here, we need to go back to admin.
+  if ($workflow = workflow_get_workflows_by_wid($wid)) {
+    $output = drupal_render($form['wf_name']);
+    $states = workflow_get_workflow_states_by_wid($wid, array('status' => 1));
+    if ($states) {
+      $roles = og_workflow_all_roles();
+      $header = array(array('data' => t('From / To') . ' &nbsp;' . WORKFLOW_ARROW));
+      $rows = array();
+      foreach ($states as $state) {
+        $state_id = $state->sid;
+        $name = $state->state;
+        // Don't allow transition TO (creation).
+        if ($name != t('(creation)')) {
+          $header[] = array('data' => check_plain(t($name)));
+        }
+        $row = array(array('data' => check_plain(t($name))));
+        foreach ($states as $nested_state) {
+          $nested_state_id = $nested_state->sid;
+          $nested_name = $nested_state->state;
+          if ($nested_name == t('(creation)')) {
+            // Don't allow transition TO (creation).
+            continue;
+          }
+          if ($nested_state_id != $state_id) {
+            // Need to render checkboxes for transition from $state to $nested_state.
+            $from = $state_id;
+            $to = $nested_state_id;
+            $cell = '';
+            foreach ($roles as $rid => $role_name) {
+              $cell .= drupal_render($form['transitions'][$from][$to][$rid]);
+            }
+            $row[] = array('data' => $cell);
+          }
+          else {
+            $row[] = array('data' => '');
+          }
+        }
+        $rows[] = $row;
+      }
+      $output .= theme('table', array('header' => $header, 'rows' => $rows));
+    }
+    else {
+      $output = t('There are no states defined for this workflow.');
+    }
+    $output .= drupal_render_children($form);
+    return $output;
+  }
+}
+
+
+/**
+ * The admin page callback that returns the og workflow admin form for a
+ * specific workflow; called by 'admin/config/workflow/workflow/edit/%/og'.
+ */
+function og_workflow_admin_form($form, $form_state, $wid) {
+  if ($workflow = workflow_get_workflows_by_wid($wid)) {
+    drupal_set_title(t('Edit workflow %name for organic groups roles', array('%name' => $workflow->name)), PASS_THROUGH);
+
+    $form['wid'] = array(
+      '#type' => 'value',
+      '#value' => $workflow->wid,
+    );
+    /* Do we need these?
+    $form['tab'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Workflow tab permissions'),
+      '#collapsible' => TRUE,
+      '#collapsed' => FALSE,
+    );
+    $form['tab']['tab_roles'] = array(
+      '#type' => 'checkboxes',
+      '#options' => og_roles(),
+      '#default_value' => explode(',', $workflow->tab_roles),
+      '#description' => t('Select any roles that should have access to the workflow tab on nodes that have a workflow.'),
+    );
+    */
+    $form['transitions'] = og_workflow_admin_transition_grid_form($workflow->wid);
+    $form['transitions']['#tree'] = TRUE;
+    $form['submit'] = array(
+      '#type' => 'submit',
+      '#value' => t('Save'),
+    );
+    return $form;
+  }
+  // If we don't have a wid by this point, we need to go back to creating one
+  // at admin/config/workflow/workflow/add
+  else {
+    drupal_goto('admin/config/workflow/workflow/add');
+  }
+}
+
+
+/**
+ * The actual checkbox grid for the admin form.
+ * (Copied from workflow/workflow_admin_ui/workflow_admin_ui.module)
+ */
+function og_workflow_admin_transition_grid_form($wid) {
+  $form = array();
+  $states = workflow_get_workflow_states_by_wid($wid, array('status' => 1));
+  if (!$states) {
+    $form = array(
+      '#type' => 'markup',
+      '#value' => t('There are no states defined for this workflow.'),
+    );
+    return $form;
+  }
+  $roles = og_workflow_all_roles($wid);
+  foreach ($states as $state1) {
+    $state_id = $state1->sid;
+    $name = $state1->state;
+    foreach ($states as $state2) {
+      $nested_state_id = $state2->sid;
+      $nested_name = $state2->state;
+      if ($nested_name == t('(creation)')) {
+        // Don't allow transition TO (creation).
+        continue;
+      }
+      if ($nested_state_id != $state_id) {
+        // Generate checkboxes for transition from $state to $nested_state.
+        $from = $state_id;
+        $to = $nested_state_id;
+        $transition = og_workflow_get_transition($from, $to);
+        foreach ($roles as $rid => $role_name) {
+          $checked = FALSE;
+          if ($transition) {
+            if (in_array($rid, $transition->roles)) {
+              $checked = TRUE;
+            }
+          }
+          $form[$from][$to][$rid] = array(
+            '#type' => 'checkbox',
+            '#title' => check_plain($role_name),
+            '#default_value' => $checked,
+          );
+        }
+      }
+    }
+  }
+  return $form;
+}
+
+
+/**
+ * Process the data returned by the og workflow admin form and merge it into
+ * the database.
+ */
+function og_workflow_admin_form_submit($form, &$form_state) {
+  $transitions = $form_state['values']['transitions'];
+  if (!$transitions) {
+    return;
+  }
+  foreach ($transitions as $from => $to_data) {
+    foreach ($to_data as $to => $role_data) {
+      $roles = array();
+      foreach ($role_data as $role => $can_do) {
+        if ($can_do) {
+          $roles[] = $role;
+        }
+      }
+      $roles = implode(',', $roles);
+      db_merge('og_workflow_transitions')
+        ->key(array('sid' => $from,
+                    'target_sid' => $to))
+        ->fields(array('roles' => $roles))
+        ->execute();
+    }
+  }
+  drupal_set_message(t('The workflow has been updated.'));
+}
+
+
+/**
+ * Alter the workflow forms for nodes and comments.
+ * Why do all the checks and not just check for the existence of the workflow form?
+ */
+function og_workflow_form_alter(&$form, &$form_state, $form_id) {
+  if ((isset($form['#node']) && isset($form['#node']->type))
+     && ($form_id == 'comment_node_' . $form['#node']->type . '_form'
+      || $form_id == $form['#node']->type . '_node_form')) {
+    $node = $form['#node'];
+    // Abort if user does not want to display workflow form on node editing form.
+    if (!in_array('node', variable_get('workflow_' . $node->type, array('node')))) {
+      return;
+    }
+    // Abort if user does not want to display workflow form on comment editing form.
+    if (!in_array('comment', variable_get('workflow_' . $node->type, array('node')))) {
+      return;
+    }
+    // Add the workflow form if there is at least one workflow for the current node type.
+    if ($workflow = workflow_get_workflow_type_map_by_type($node->type)) {
+      $form['workflow'] = og_workflow_node_form($node, $form);
+    }
+  }
+}
+
+
+/**
+ * Alter the workflow form on the workflow tab (@see og_workflow_node_form()).
+ */
+function og_workflow_form_workflow_tab_form_alter(&$form, &$form_state, $form_id) {
+  if (!isset($form['node'])) {
+    drupal_set_message(t("No workflow transitions available for this node."));
+  }
+  else {
+    $node = $form['node']['#value'];
+    $form['workflow'] = og_workflow_node_form($node, $form);
+  }
+}
+
+
+/**
+ * Modify the workflow form for the workflow tab and the
+ * node form as well (that's why it's separate).
+ */
+function og_workflow_node_form($node, $form) {
+  global $user;
+  // Don't modify the form for the admin user.
+  if ($user->uid == 1) {
+    return $form['workflow'];
+  }
+
+  // If there is a workflow for this node and there are groups, adjust the form.
+  if (isset($form['#wf'])) {
+    $options = $form['workflow'][$form['#wf']->name]['#options'];
+    $from_sid = $form['workflow'][$form['#wf']->name]['#default_value'];
+    foreach ($options as $to_sid => $state) {
+      // Remove option if user is prohibited to perform it.
+      if (!og_workflow_user_may_perform_transition($from_sid, $to_sid, $node)) {
+        unset($form['workflow'][$form['#wf']->name]['#options'][$to_sid]);
+      }
+    }
+  }
+  return $form['workflow'];
+}
+
+
+
+/**
+ * Implements hook_workflow().
+ *
+ * If the current node is in a group, only allow to perform the transition if
+ * group based permissions are given.
+ *
+ * Delete according permissions if a workflow state is deleted.
+ */
+function og_workflow_workflow($op, $from_state, $to_state, $node) {
+  switch ($op) {
+    case 'transition pre':
+      if ($workflow = workflow_get_workflow_type_map_by_type($node->type)) {
+        if (og_workflow_user_may_perform_transition($from_state, $to_state, $node)) {
+          return TRUE;
+        }
+        else {
+          drupal_set_message(t('You are not allowed to make this transition.'), 'warning');
+          return FALSE;
+        }
+      }
+      break;
+    case 'state delete':
+      db_delete('og_workflow_transitions')
+        ->condition(db_or()->condition('sid', $from_state)->condition('target_sid', $from_state))
+        ->execute();
+      break;
+  }
+}
+
+
+/**
+ * Get the roles that are be available in all groups.
+ */
+function og_workflow_all_roles() {
+  static $roles = NULL;
+  if (!$roles) {
+    $roles = array('author' => 'author');
+    $group_bundles = og_get_all_group_bundle();
+    foreach ($group_bundles as $entity_type => $bundles) {
+      foreach ($bundles as $bundle_name => $bundle_label) {
+        $bundle_roles = og_roles($entity_type, $bundle_name);
+        foreach ($bundle_roles as $rid => $name) {
+          $roles[$rid] = $bundle_label . " – " . $name;
+        }
+      }
+    }
+  }
+  return $roles;
+}
+
+
+/**
+ * Get the roles of a user for the groups that the given node belongs to.
+ */
+function og_workflow_user_roles_for_node($node, $user=NULL) {
+  if ($user == NULL) {
+    global $user;
+  }
+  $roles = array();
+
+  $target_groups = og_get_entity_groups('node', $node);
+  if (!empty($target_groups)) {
+    foreach (array_values($target_groups['node']) as $group) {
+      $og_role_ids = array_keys(og_get_user_roles('node', $group, $user->uid));
+      $roles = array_merge($roles, $og_role_ids);
+    }
+  }
+  return $roles;
+}
+
+
+/**
+ * Check if a user (defaults to the current) is allowed to move a given node
+ * from one state to another.
+ */
+function og_workflow_user_may_perform_transition($from_sid, $to_sid, $node, $user=NULL) {
+  if ($user == NULL) {
+    global $user;
+  }
+  if ($user->uid == 1) {
+    return TRUE;
+  }
+  // If there are no audience groups for a node, we are fine with everything.
+  // (workflow will kick in)
+  if (!og_get_entity_groups('node', $node)) {
+    return TRUE;
+  }
+  $transition = og_workflow_get_transition($from_sid, $to_sid);
+  if ($transition) {
+    // If the current user is the author and author is allowed to perform
+    // the transition, return TRUE
+    if (isset($node->uid) && ($node->uid == $user->uid)) {
+      if (in_array('author', $transition->roles)) {
+        return TRUE;
+      }
+    }
+    // Allow transition if one of the roles the current user has in any
+    // of the groups of the current node has the permission.
+    $user_roles = og_workflow_user_roles_for_node($node, $user);
+    foreach($user_roles as $rid) {
+      if (in_array($rid, $transition->roles)) {
+        return TRUE;
+      }
+    }
+  }
+  return FALSE;
+}
+
+
+/**
+ * Retrieve the transition between two given states from the database.
+ */
+function og_workflow_get_transition($sid, $target_sid) {
+  $result = db_select('og_workflow_transitions', 'owt')
+      ->fields('owt')
+      ->condition('sid', $sid)
+      ->condition('target_sid', $target_sid)
+      ->execute();
+  $transition = $result->fetchObject();
+  if ($transition)
+    $transition->roles = explode(',', $transition->roles);
+  return $transition;
+}
+
+
+////////////// Integration with og_access
+
+/**
+ * Implements hook_node_access_records_alter().
+ */
+function og_workflow_node_access_records_alter(&$grants, $node) {
+  if (!module_exists('og_access')) {
+    return;
+  }
+  if (variable_get('og_node_access_strict', TRUE)) {
+    // check whether og_access tries to restrict access
+    $og_access_active = FALSE;
+    foreach ($grants as $grant) {
+      if (strpos($grant['realm'], 'og_access:') === 0) {
+        $og_access_active = TRUE;
+        break;
+      }
+    }
+    // remove other view grants in order to let og_access prevail
+    if ($og_access_active) {
+      foreach ($grants as $id => $grant) {
+        if ($grant['realm'] == 'workflow_access') {
+          if ($grant['grant_update'] == '0' && $grant['grant_delete'] == '0') {
+            unset($grants[$id]);
+          }
+          else {
+            $grant['grant_view'] = 0;
+          }
+        }
+      }
+    }
+  }
+}
+
+
+////////////// Integration with features
+
+/**
+ * Implements hook_features_api().
+ */
+function og_workflow_features_api() {
+  return array(
+    'og_workflow' => array(
+      'name' => t('OG Workflow'),
+      'file' => drupal_get_path('module', 'og_workflow') . '/og_workflow.features.inc',
+      'default_hook' => 'og_workflow_default_transitions',
+      'default_file' => FEATURES_DEFAULTS_INCLUDED,
+      'feature_source' => TRUE,
+    ),
+  );
+}

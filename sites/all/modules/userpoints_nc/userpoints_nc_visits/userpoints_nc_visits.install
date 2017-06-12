@@ -1,0 +1,42 @@
+<?php
+
+/**
+ * @file
+ * Install hooks for userpoints_nc_visits.
+ */
+
+/**
+ * Implements hook_uninstall().
+ */
+function userpoints_nc_visits_uninstall() {
+  db_delete('variable')
+    ->condition('name', 'userpoints_nc_visits_%', 'LIKE')
+    ->execute();
+}
+
+
+/**
+ * Implements hook_schema().
+ */
+function userpoints_nc_visits_schema() {
+  $schema = array();
+
+  $schema['userpoints_nc_visits'] = array(
+  'description' => 'Records userpoints pageview clicks',
+    'fields' => array(
+      'id'        => array('type' => 'serial',  'length' => '10', 'unsigned' => TRUE, 'not null' => TRUE ),
+      'uid'       => array('type' => 'int',     'length' => '10', 'unsigned' => TRUE, 'default' => NULL, ),
+      'nid'       => array('type' => 'int',     'length' => '10', 'unsigned' => TRUE, 'default' => NULL, ),
+      'ip'        => array('type' => 'varchar', 'length' => '16',                     'default' => NULL ),
+      'timestamp' => array('type' => 'int',     'length' => '11',                     'default' => NULL ),
+    ),
+    'primary key' => array('id'),
+    'indexes' => array(
+      'userpoints_nc_visits_uid'       => array('uid'),
+      'userpoints_nc_visits_nid'       => array('nid'),
+      'userpoints_nc_visits_ip'        => array('ip'),
+      'userpoints_nc_visits_timestamp' => array('timestamp'),
+    ),
+  );
+  return $schema;
+}

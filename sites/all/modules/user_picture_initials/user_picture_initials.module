@@ -1,0 +1,148 @@
+<?php
+/**
+ * @file
+ * User Picture Initials module.
+ */
+
+/**
+ *  Implements hook_theme_registry_alter().
+ */
+function user_picture_initials_theme_registry_alter(&$theme_registry) {
+  // Add an extra preprocess function to override the user_image.
+  $theme_registry['user_picture']['preprocess functions'][] = 'user_picture_initials_replace_image_with_initials';
+}
+
+/**
+ *  Implements hook_views_api().
+ */
+function user_picture_initials_views_api() {
+  return array(
+    'api' => 3,
+    'path' => drupal_get_path('module', 'user_picture_initials') . '/views',
+  );
+}
+
+/**
+ *  Implements hook_views_data_alter().
+ */
+function user_picture_initials_views_data_alter(&$data) {
+  $data['users']['picture']['field']['handler'] = 'views_handler_field_user_picture_initials';
+}
+
+/**
+ *  Implements hook_form_alter().
+ */
+function user_picture_initials_form_user_admin_settings_alter(&$form, &$form_state) {
+  $form['personalization']['pictures']['user_picture_default']['#access'] = FALSE;
+  array_splice($form['personalization']['pictures'], 5, 0, array(
+    'user_picture_initials' => array(
+      '#type' => 'item',
+      '#title' => t('User picture initials'),
+      '#markup' => t('The initials of the user (e.g. JD for John Doe) will be displayed when no image has been uploaded.'),
+    ),
+  ));
+}
+
+/**
+ * Preprocess callback to override the user_picture value.
+ *
+ * Called after template_preprocess_user_picture().
+ *
+ * @param $variables
+ */
+function user_picture_initials_replace_image_with_initials(&$variables) {
+  $account = $variables['account'];
+
+  // When no image is set, use the initials.
+  if (empty($account->picture)) {
+    $variables['user_picture'] = user_picture_initials_render_initials($account);
+  }
+}
+
+/**
+ *  Implements hook_ds_fields_info_alter().
+ */
+function user_picture_initials_ds_fields_info_alter(&$fields, $entity_type) {
+  if (!empty($fields['ds_user_picture'])) {
+    $fields['ds_user_picture']['function'] = 'user_picture_initials_render_user_picture_field';
+    $fields['ds_user_picture']['module'] = 'user_picture_initials';
+  }
+}
+
+/**
+ * Field formatter function to override the DS way of rendering a user picture.
+ */
+function user_picture_initials_render_user_picture_field($field) {
+  $account = $field['entity'];
+
+  // When no image is set, use the initials.
+  if (empty($account->picture)) {
+    return user_picture_initials_render_initials($account);
+  }
+
+  // Default to the DS function.
+  return ds_render_user_picture($field);
+}
+
+/**
+ * Function to return the user's initials.
+ * @param $account
+ * @return string
+ */
+function user_picture_initials_render_initials($account) {
+  if (empty($account->name)) {
+    return;
+  }
+  $words = explode(' ', $account->name);
+
+  // Use the first letter of the name as default.
+  $first_word = reset($words);
+  $initials = drupal_substr($first_word, 0, 1);
+
+  // When the username exists of more than one word, use the last word too.
+  if (sizeof($words) > 1) {
+    $last_word = end($words);
+    $initials .= drupal_substr($last_word, 0, 1);
+  }
+
+  return theme('user_picture_initials', array(
+    'account' => $account,
+    'initials' => drupal_strtoupper($initials),
+  ));
+}
+
+/**
+ *  Implements hook_theme().
+ */
+function user_picture_initials_theme($existing, $type, $theme, $path) {
+  return array(
+    'user_picture_initials' => array(
+      'variables' => array('account' => NULL, 'initials' => NULL),
+    ),
+  );
+}
+
+/**
+ * Implements hook_preprocess_THEME_FUNCTION().
+ */
+function user_picture_initials_preprocess_user_picture_initials(&$variables) {
+  drupal_add_css(drupal_get_path('module', 'user_picture_initials') . '/css/user_picture_initials.base.css');
+}
+
+/**
+ * Theme function to render the user picture initials.
+ *
+ * @param $variables
+ * @return string
+ */
+function theme_user_picture_initials($variables) {
+  $initials = $variables['initials'];
+
+  // User the core preprocess function to check for a user path.
+  template_preprocess_username($variables);
+
+  if (!empty($variables['link_path'])) {
+    $initials = l($initials, $variables['link_path']);
+  }
+  return '<span class="user-initials">' . $initials . '</span>';
+}

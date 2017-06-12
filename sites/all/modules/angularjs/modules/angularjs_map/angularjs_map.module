@@ -1,0 +1,74 @@
+<?php
+/**
+ * @file
+ * Code for the AngularJS Earthquake Map example
+ */
+
+include_once 'angularjs_map.features.inc';
+
+function angularjs_map_angularjs_directives() {
+  $directives = array();
+  
+  $directives[drupal_get_path('module', 'angularjs_map') . '/js/directives/leaflet.js'] = array();
+   
+  return $directives;
+}
+
+function angularjs_map_angularjs_filters() {
+  $filters = array();
+  
+  $filters[drupal_get_path('module', 'angularjs_map') . '/js/filters/angularjs_map.js'] = array();
+  
+  return $filters;
+}
+
+function angularjs_map_menu() {
+  $items = array();
+  
+  $items['map'] = array(
+    'access arguments' => array('access content'),
+    'title' => t('Map'),
+    'page callback' => 'angularjs_map_map',  
+  );
+  
+  return $items;
+}
+
+function angularjs_map_map() {
+  angularjs_init_application('earthquakeMap');
+  
+  drupal_add_js(libraries_get_path('leaflet') . '/dist/leaflet-src.js');
+  drupal_add_css(libraries_get_path('leaflet') . '/dist/leaflet.css');
+  drupal_add_js(drupal_get_path('module', 'angularjs_map') . '/js/leaflet-google.js');
+  
+  drupal_add_js(libraries_get_path('Leaflet.markercluster') . '/dist/leaflet.markercluster.js');
+  drupal_add_css(libraries_get_path('Leaflet.markercluster') . '/dist/MarkerCluster.css');
+  drupal_add_css(libraries_get_path('Leaflet.markercluster') . '/dist/MarkerCluster.Default.css');
+
+  drupal_add_css(libraries_get_path('bootstrap') . '/css/bootstrap.min.css');
+  drupal_add_css(libraries_get_path('bootstrap') . '/css/bootstrap-responsive.min.css');
+  drupal_add_js(libraries_get_path('bootstrap') . '/js/bootstrap.min.js');
+  
+  drupal_add_js(drupal_get_path('module', 'angularjs_map') . '/js/app.js');
+  drupal_add_css(drupal_get_path('module', 'angularjs_map') . '/angular_map.css');
+  
+  angularjs_add_partial('partials/map.html', theme('angular_js_map_map', array('width' => '100%', 'height' => '600px', 'zoom' => 2)));
+  
+  return theme('angularjs_map_app');
+}
+
+function angularjs_map_theme($existing, $type, $theme, $path) {
+  $theme = array();
+  
+  $theme['angularjs_map_app'] = array(
+    'variables' => array(),
+    'template' => 'angularjs-map-app',  
+  );
+  
+  $theme['angular_js_map_map'] = array(
+    'variables' => array('height' => '500px', 'width' => NULL, 'zoom' => 13),
+    'template' => 'angularjs-map-map',  
+  );
+  
+  return $theme;
+}

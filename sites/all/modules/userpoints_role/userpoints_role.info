@@ -1,0 +1,13 @@
+name = Userpoints Role
+description = Users join/leave roles as they earn/lose certain points threshold, and get an email.
+package = Userpoints
+dependencies[] = userpoints
+core = 7.x
+files[]=userpoints_role.test
+
+; Information added by Drupal.org packaging script on 2015-11-20
+version = "7.x-1.x-dev"
+core = "7.x"
+project = "userpoints_contrib"
+datestamp = "1447978741"
+

@@ -1,0 +1,11 @@
+name = Administration Menu Flat Toolbar
+description = CSS tweaks for the administration menu toolbar.
+core = 7.x
+package = Administration
+dependencies[] = admin_menu_toolbar
+; Information added by Drupal.org packaging script on 2015-02-03
+version = "7.x-1.0"
+core = "7.x"
+project = "admin_menu_toolbar_flat"
+datestamp = "1422966468"
+

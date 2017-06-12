@@ -1,0 +1,40 @@
+.facets {
+	float: left;
+	width: 180px;
+}
+
+body {
+	line-height: 1 !important;
+}
+
+.region-content ul.nav {
+	padding-bottom: 0;
+}
+
+ul.nav ul.dropdown-menu {
+	margin: 0;
+	padding: 0;
+}
+
+ul.nav .dropdown-menu ul {
+	margin: 0;
+}
+
+.dropdown-menu {
+	z-index: 1500;
+}
+
+.nav .restws-facet {
+	max-height: 200px;
+	overflow: scroll;
+}
+
+body #header,
+body #footer-wrapper,
+h1.title {
+	display: none;
+}
+
+body #main {
+	margin: 0;
+}

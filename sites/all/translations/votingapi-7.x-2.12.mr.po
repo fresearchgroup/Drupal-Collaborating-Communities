@@ -1,0 +1,28 @@
+# Marathi translation of Voting API (7.x-2.12)
+# Copyright (c) 2016 by the Marathi translation team
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Voting API (7.x-2.12)\n"
+"POT-Creation-Date: 2016-02-21 16:04+0000\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Language-Team: Marathi\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+
+msgid "Value"
+msgstr "किंमत"
+msgid "all"
+msgstr "सर्व"
+msgid "User"
+msgstr "सदस्य"
+msgid "Never"
+msgstr "कधीही नाही"
+msgid "Percent"
+msgstr "टक्के"
+msgid "Appearance"
+msgstr "दृश्य स्वरूप"
+msgid "Votes"
+msgstr "मते"

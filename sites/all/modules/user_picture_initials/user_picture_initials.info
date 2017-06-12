@@ -1,0 +1,12 @@
+name = User Picture Initials
+description = Display the user's initials instead of a default picture.
+core = 7.x
+dependencies[] = "user"
+
+files[] = views/views_handler_field_user_picture_initials.inc
+; Information added by Drupal.org packaging script on 2015-01-24
+version = "7.x-1.0"
+core = "7.x"
+project = "user_picture_initials"
+datestamp = "1422097384"
+

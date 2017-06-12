@@ -1,0 +1,275 @@
+<?php
+
+/**
+ * @file
+ * Hooks and functions for userpoints_nc_visits module.
+ */
+
+/**
+ * Implements hook_permission().
+ */
+function userpoints_nc_visits_permission() {
+  return array(
+    'userpoints nc track visits' => array(
+      'title' => t('Track page visits'),
+      'description' => t('Only visits from users who have this permission will count as eligible for granting !points.', userpoints_translation())
+    ),
+  );
+}
+
+/**
+ * Helper function to return a setting.
+ *
+ * If a node type is passed in, the specific setting will be used with a
+ * fallback to the global settings.
+ *
+ * @param $name
+ *   Name of the setting without module prefix.
+ * @param $type
+ *   Node type, if passed in, the function looks for a node type specific setting.
+ *
+ * @return
+ *   The configured setting value.
+ */
+function userpoints_nc_visits_get_setting($name, $type = NULL, $default = 0) {
+  if (!empty($type)) {
+    return variable_get('userpoints_nc_visits_' . $name . '_' . $type, variable_get('userpoints_nc_visits_' . $name, $default));
+  }
+  else {
+    return variable_get('userpoints_nc_visits_' . $name, $default);
+  }
+}
+
+/**
+ * Implements hook_userpoints().
+ */
+function userpoints_nc_visits_userpoints($op = 'setting', $params = array()) {
+  if ($op == 'setting') {
+    $group = 'userpoints_nc_visits';
+    $form[$group] = array(
+      '#type' => 'fieldset',
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+      '#title' => t('Content visits'),
+      '#group' => 'settings_additional',
+      '#weight' => 30,
+      '#attached' => array(
+        'js' => array(
+          'userpoints_nc_visits' => drupal_get_path('module', 'userpoints_nc_visits') . '/userpoints_nc_visits.js',
+        ),
+      ),
+    );
+
+    $form[$group]['userpoints_nc_visits_enabled'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Enabled by default'),
+      '#default_value' => userpoints_nc_visits_get_setting('enabled', NULL, TRUE),
+      '#description' => t('If checked, all content types award !points for visited content by default. This can be overridden for each content type on the content type edit page.', userpoints_translation()),
+    );
+
+    $form[$group]['userpoints_nc_visits_points'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Default !points for visited content', userpoints_translation()),
+      '#description' => t('Set the default number of !points awarded to a content author when the content is visited (by another user). This can be overridden for each content type.', userpoints_translation()),
+      '#default_value' => userpoints_nc_visits_get_setting('points'),
+      '#size' => 5,
+      '#maxlength' => 5,
+    );
+
+    $form[$group]['userpoints_nc_visits_category'] = array(
+      '#type' => 'select',
+      '#title' => t('Default !points category for visited content', userpoints_translation()),
+      '#description' => t('Choose the category of !points to be used by default when content is visited. This can be overridden for each content type.', userpoints_translation()),
+      '#options' => userpoints_get_categories(),
+      '#default_value' => userpoints_nc_visits_get_setting('category'),
+    );
+
+    $form[$group]['userpoints_nc_visits_interval'] = array(
+      '#type' => 'select',
+      '#title' => t('Recurring visits duration'),
+      '#default_value' => userpoints_nc_visits_get_setting('interval', NULL, 86400),
+      '#options' => drupal_map_assoc(array(3600, 10800, 21600, 32400, 43200, 86400, 172800, 259200, 604800, 1209600, 2419200), 'format_interval'),
+      '#description' => t('Select a time interval in which repeat visits to the same content from the same IP address will be considered a single visit.'),
+    );
+
+    $options = array(
+      'all' => t('All content'),
+      'one' => t('Only the first visited content'),
+    );
+
+    $form[$group]['userpoints_nc_visits_limit'] = array(
+      '#type' => 'radios',
+      '#title' => t('Eligible content'),
+      '#default_value' => userpoints_nc_visits_get_setting('limit', NULL, 'all'),
+      '#options' => $options,
+      '#description' => t('Selecting "All content" (the default behavior) allows !points to be awarded for all content visited by a user. Alternately, selecting "Only the first visited content" will allow !points only to be awarded for the first piece of content a user visits during the "recurring visits duration" (with visits to additional content items ignored during the time interval).', userpoints_translation()),
+    );
+
+
+    return $form;
+  }
+}
+
+/**
+ * Implements hook_form_BASE_alter().
+ */
+function userpoints_nc_visits_form_node_type_form_alter(&$form, &$form_state) {
+  $group = 'userpoints_nc_visits';
+  $form[$group] = array(
+    '#type' => 'fieldset',
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+    '#title' => t('!Points for visits', userpoints_translation()),
+    '#group' => 'settings_additional',
+    '#access' => user_access('administer userpoints'),
+    '#weight' => 30,
+    '#group' => 'additional_settings',
+    '#attached' => array(
+      'js' => array(
+        'userpoints_nc_visits' => drupal_get_path('module', 'userpoints_nc_visits') . '/userpoints_nc_visits.js',
+      ),
+    ),
+    '#attributes' => array('class' => array('userpoints-nc-visits-nodetype-form')),
+  );
+
+  $type = $form['#node_type']->type;
+
+  $form[$group]['userpoints_nc_visits_enabled'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Enabled'),
+    '#default_value' => userpoints_nc_visits_get_setting('enabled', $type, TRUE),
+    '#description' => t('If checked, !points are awarded for visited content of this type.', userpoints_translation()),
+  );
+
+  $form[$group]['userpoints_nc_visits_points'] = array(
+    '#type' => 'textfield',
+    '#title' => t('!Points for visited content', userpoints_translation()),
+    '#default_value' => userpoints_nc_visits_get_setting('points', $type),
+    '#size' => 5,
+    '#maxlength' => 5,
+    '#description' => t('Set the number of !points to be awarded to the content author when another user visits content of this type.', userpoints_translation()),
+    '#states' => array(
+      'visible' => array(
+        ':input[name="userpoints_nc_visits_enabled"]' => array('checked' => TRUE),
+      ),
+    ),
+  );
+
+  $form[$group]['userpoints_nc_visits_category'] = array(
+    '#type' => 'select',
+    '#title' => t('!Points category for visited content', userpoints_translation()),
+    '#description' => t('Choose the category of !points to be awarded to the content author when another user visits content of this type.', userpoints_translation()),
+    '#options' => userpoints_get_categories(),
+    '#default_value' => userpoints_nc_visits_get_setting('category', $type),
+    '#states' => array(
+      'visible' => array(
+        ':input[name="userpoints_nc_visits_enabled"]' => array('checked' => TRUE),
+      ),
+    ),
+  );
+}
+
+/**
+ * Implements hook_node_view().
+ */
+function userpoints_nc_visits_node_view($node, $view_mode) {
+  global $user;
+
+  // Check enabled setting.
+  if (!userpoints_nc_visits_get_setting('enabled', $node->type, TRUE)) {
+    return;
+  }
+
+  // Check view mode, permission, node author and timeout setting.
+  if ($view_mode != 'full' || !user_access('userpoints nc track visits') || $node->uid == $user->uid || userpoints_nc_visits_check_timeout($node->nid, $user->uid)) {
+    return;
+  }
+
+  // Create a record, so we can check it later.
+  db_insert('userpoints_nc_visits')
+    ->fields(array(
+      'uid' => $user->uid,
+      'nid' => $node->nid,
+      'ip' => ip_address(),
+      'timestamp' => REQUEST_TIME,
+    ))
+    ->execute();
+
+  // Award the points.
+  userpoints_userpointsapi(array(
+    'uid' => $node->uid,
+    'points' => userpoints_nc_visits_get_setting('points', $node->type),
+    'operation' => 'userpoints_nc_visits',
+    'entity_id' => $node->nid,
+    'entity_type' => 'node',
+    'tid' => userpoints_nc_visits_get_setting('category', $node->type),
+    'display' => FALSE,
+  ));
+}
+
+/**
+ * Check if a node has an active visits timeout.
+ *
+ * @param $nid
+ *   NID that should be checked.
+ * @param $uid
+ *   UID that should be checked
+ *
+ * @return
+ *   TRUE if a timeout is active, FALSE if points can be assigned.
+ */
+function userpoints_nc_visits_check_timeout($nid, $uid = 0) {
+  $query = db_select('userpoints_nc_visits')
+    ->condition('ip', ip_address())
+    ->condition('timestamp', REQUEST_TIME - userpoints_nc_visits_get_setting('timeout', NULL, 86400), '>')
+    ->condition('uid', $uid)
+    ->range(0, 1);
+  $query->addExpression('1');
+
+  // If set to All.
+  if (userpoints_nc_visits_get_setting('limit', NULL, 'all') == 'all') {
+    $query->condition('nid', $nid);
+  }
+  return (bool) $query
+    ->execute()
+    ->fetchField();
+}
+
+/**
+ * Implements hook_cron().
+ *
+ * Clear old entries in the {userpoints_nc_visits} table.
+ */
+function userpoints_nc_visits_cron() {
+  db_delete('userpoints_nc_visits')
+          ->condition('timestamp', REQUEST_TIME - userpoints_nc_visits_get_setting('timeout', NULL, 86400), '<')
+          ->execute();
+}
+
+/**
+ * Implements hook_userpoints_info().
+ */
+function userpoints_nc_visits_userpoints_info() {
+  return array(
+    'userpoints_nc_visits' => array(
+      'description callback' => 'userpoints_nc_visits_description_callback',
+    ),
+  );
+}
+
+/**
+ * Description callback for userpoints operation description/reason.
+ */
+function userpoints_nc_visits_description_callback($operation, $entity) {
+  $arguments = array();
+  // Try to load content type name.
+  if ($entity) {
+    $arguments['%title'] = entity_label($operation->entity_type, $entity);
+  }
+
+  // Fallback to string content if the above failed for some reason.
+  if (empty($arguments['%title'])) {
+    $arguments['%title'] = t('content');
+  }
+  return t('A user visited %title.', $arguments);
+}

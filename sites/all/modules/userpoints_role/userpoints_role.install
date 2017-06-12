@@ -1,0 +1,10 @@
+<?php
+
+function userpoints_role_uninstall() {
+  db_delete('variable')
+    ->condition(db_or()
+      ->condition('name', 'userpoints_role%', 'LIKE')
+      ->condition('name', 'userpoints_email_role%', 'LIKE')
+    )
+    ->execute();
+}
