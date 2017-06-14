@@ -1,0 +1,29 @@
+<?php
+
+// Author: Eugen Mayer (http://kontextwork.de)
+// Copyright 2010
+
+function tagging_vocab_suggest_tagging_suggestions($vid, $node) {
+  $suggestions = array();
+
+  if(strpos(VERSION, '7') === 0) {
+    $query = db_select('taxonomy_term_data', 't');
+    $query->fields('t');
+    $query->condition('vid', $vid);
+    $query->addTag('translatable');
+    $query->addTag('term_access');
+    $result = $query->execute();
+
+    foreach($result as $term) {
+      $suggestions[] = array('#weight' => $term->weight, '#name' => $term->name);
+    }
+  }
+  else {
+    $result  = db_query('select * from {term_data} where vid=%d', $vid);
+    while ($term = db_fetch_object($result)) {
+      $suggestions[] = array('#weight' => $term->weight, '#name' => $term->name);
+    }
+  }
+
+  return $suggestions;
+}

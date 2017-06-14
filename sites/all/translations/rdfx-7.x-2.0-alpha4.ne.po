@@ -1,0 +1,26 @@
+# Nepali translation of RDF Extensions (7.x-2.0-alpha4)
+# Copyright (c) 2013 by the Nepali translation team
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: RDF Extensions (7.x-2.0-alpha4)\n"
+"POT-Creation-Date: 2013-01-10 08:10+0000\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Language-Team: Nepali\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+
+msgid "Prefix"
+msgstr "उपसर्ग"
+msgid "Operations"
+msgstr "सञ्चालनहरू"
+msgid "Type"
+msgstr "प्रकार"
+msgid "edit"
+msgstr "सम्पादन गर्नुहोस्"
+msgid "Save"
+msgstr "बचत गर्नुहोस्"
+msgid "Not installed"
+msgstr "इन्सटल भएको छैन"

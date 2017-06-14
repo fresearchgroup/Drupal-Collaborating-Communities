@@ -1,0 +1,18 @@
+# Hindi translation of Tagging (7.x-3.3)
+# Copyright (c) 2012 by the Hindi translation team
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Tagging (7.x-3.3)\n"
+"POT-Creation-Date: 2012-04-05 11:03+0000\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Language-Team: Hindi\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+
+msgid "Taxonomy"
+msgstr "वर्गीकरण"
+msgid "Add"
+msgstr "जोड़ें"

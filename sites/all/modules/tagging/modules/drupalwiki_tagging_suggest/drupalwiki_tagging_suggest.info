@@ -1,0 +1,16 @@
+; Eugen Mayer (http://kontextwork.de)
+; Converted from D6 to D7 by iStryker
+name = Drupal Wiki tagging suggestions
+description = Suggesting terms for the Tagging-Module based on the current content and a algorythm developed for Drupal Wiki
+package = Tagging
+core = 7.x
+dependencies[] = taxonomy
+dependencies[] = tagging
+files[] = drupalwiki_extractor.inc
+files[] = drupalwiki_tagging_suggest.module
+; Information added by drupal.org packaging script on 2011-12-02
+version = "7.x-3.3"
+core = "7.x"
+project = "tagging"
+datestamp = "1322824843"
+
