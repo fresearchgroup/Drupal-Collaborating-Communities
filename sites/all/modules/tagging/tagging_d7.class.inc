@@ -25,30 +25,30 @@ class tagging_d7 extends tagging_d6 {
   }
 
   public function hook_tagging_form_alter(&$form, $form_state, $form_id) {}
-  
+
   public function hook_tagging_form_taxonomy_form_vocabulary_alter(&$form, $form_state) {}
 
-  public function theme_tagging_widget($args) {
+  public function theme_tagging_widget($args = null) {
     return parent::theme_tagging_widget_button($args['element']);
   }
 
-  public function theme_tagging_widget_button($args) {
+  public function theme_tagging_widget_button($args = null) {
     return parent::theme_tagging_widget_button($args['vid']);
   }
 
-  public function theme_tagging_widget_wrapper($args) {
+  public function theme_tagging_widget_wrapper($args = NULL, $vid = NULL) {
     return parent::theme_tagging_widget_wrapper($args['content']);
   }
 
-  public function theme_tagging_tags_list($args) {
+  public function theme_tagging_tags_list($args = NULL, $vid = NULL) {
     return parent::theme_tagging_tags_list($args['tags'], $args['vid']);
   }
 
-  public function theme_tagging_suggestions_list($args) {
+  public function theme_tagging_suggestions_list($args = array(), $vid = NULL) {
     return parent::theme_tagging_suggestions_list($args['suggestions'], $args['vid']);
   }
 
-  public function theme() {
+  public function theme($theme_name, $arr) {
     $args = func_get_args();
     return call_user_func_array('theme', $args);
   }
