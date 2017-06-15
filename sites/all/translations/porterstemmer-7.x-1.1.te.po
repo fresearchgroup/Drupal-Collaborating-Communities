@@ -1,0 +1,16 @@
+# Telugu translation of Porter-Stemmer (7.x-1.1)
+# Copyright (c) 2016 by the Telugu translation team
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Porter-Stemmer (7.x-1.1)\n"
+"POT-Creation-Date: 2016-11-18 21:45+0000\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Language-Team: Telugu\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+
+msgid "Search"
+msgstr "వెతుకు"

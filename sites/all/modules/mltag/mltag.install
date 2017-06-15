@@ -1,0 +1,105 @@
+<?php
+/**
+ * @file
+ * Install and uninstall functions for the MLTag module.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function mltag_schema() {
+  $schema['mltag_learn_tags'] = array(
+    'description' => 'Table for storing the learned model',
+    'fields'           => array(
+      'nid'                   => array(
+        'description' => 'Stores the node id',
+        'type'       => 'int',
+        'unsigned'   => 'true',
+	'not null'   => TRUE,//this was added
+      ),
+      'content_tags' => array(
+        'description' => 'Stores the learnt tags associative array derived from each content',
+        'type'       => 'varchar',
+        'length'     => 2000,
+        'default'    => '',
+	'not null'   => TRUE,//this was added
+      ),
+      'user_tags'       => array(
+        'description' => 'Stores tags marked by the user for each content',
+        'type'       => 'varchar',
+        'length'     => 2000,
+        'default'    => '',
+	'not null'   => TRUE,//this was added      
+	),
+      'date_created' => array(
+        'description' => 'Stores the timestamp when the values were entered',
+        'mysql_type' => 'DATETIME',
+        'not null'   => TRUE,
+      ),
+    ),
+    'primary key' => array('nid'),
+  );
+
+  $schema['mltag_node_fields'] = array(
+    'description' => 'Table for storing the fields from which data has to be extracted to propose tags.',
+    'fields'           => array(
+      'uid'                      => array(
+        'description' => 'Stores the User Id',
+        'type'       => 'int',
+        'unsigned'   => 'true',
+      ),
+      'node_type'          => array(
+        'description' => 'Stores the Node Type',
+        'type'       => 'varchar',
+        'length'     => 50,
+        'default'    => '',
+      ),
+      'status'                => array(
+        'description' => 'Stores the status. 1- for field has to be used. 0- Field not to be used.',
+        'type'       => 'int',
+        'unsigned'   => 'true',
+      ),
+      'field_id'            => array(
+        'description' => 'Stores the Field Id',
+        'type'       => 'int',
+        'unsigned'   => 'true',
+      ),
+      'field_instance_id' => array(
+        'description' => 'Stores the Field Instance id with respect to the node it is attached to',
+        'type'       => 'int',
+      ),
+      'field_name'         => array(
+        'description' => 'Stores the Field Name',
+        'type'       => 'varchar',
+        'length'     => 50,
+        'default'    => '',
+      ),
+      'field_type'        => array(
+        'description' => 'Stores the Field Type',
+        'type'       => 'varchar',
+        'length'     => 50,
+        'default'    => '',
+      ),
+      'vocab_name'        => array(
+        'description' => 'Stores the Vocab Name',
+        'type'       => 'varchar',
+        'length'     => 50,
+        'default'    => '',
+      ),
+    ),
+  );
+  return $schema;
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function mltag_uninstall() {
+  variable_del('mltag_algo_type');
+  variable_del('mltag_enable_learning');
+  variable_del('mltag_unpublished');
+  variable_del('mltag_implicit_tag_count');
+  variable_del('mltag_user_vocab_list');
+  variable_del('mltag_node_types');
+
+}

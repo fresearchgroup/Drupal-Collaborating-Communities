@@ -1,0 +1,13 @@
+diff --git a/values.install b/values.install
+index 609ca52..dc727ca 100644
+--- a/values.install
++++ b/values.install
+@@ -32,6 +32,7 @@ function values_schema() {
+         'description' => 'Unique ID for value sets.',
+         'type' => 'varchar',
+         'length' => 255,
++        'not null' => TRUE,
+       ),
+       'title' => array(
+         'description' => 'Title of the value set',
+

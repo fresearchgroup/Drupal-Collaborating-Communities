@@ -1,0 +1,10 @@
+#mltag_suggest_tags_table_div {
+  clear: both;
+  float: left;
+  margin-top: 10px;
+  width: 500px;
+}
+
+#edit-mltag-new-tag {
+  float: left;
+}
