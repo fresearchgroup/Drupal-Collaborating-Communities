@@ -1,0 +1,13 @@
+name = Tag on save
+description = Simple module that implements the Tag API and saves tags when a node or other entity is saved.
+core = 7.x
+files[] = tag_on_save.module
+dependencies[] = tag
+package = Tags
+
+; Information added by Drupal.org packaging script on 2015-04-28
+version = "7.x-1.0+2-dev"
+core = "7.x"
+project = "tag"
+datestamp = "1430212082"
+

@@ -1,0 +1,12 @@
+name = Tag
+description = Provides a front end implementation of the Tag API.
+core = 7.x
+files[] = tag.module
+package = Tags
+
+; Information added by Drupal.org packaging script on 2015-04-28
+version = "7.x-1.0+2-dev"
+core = "7.x"
+project = "tag"
+datestamp = "1430212082"
+

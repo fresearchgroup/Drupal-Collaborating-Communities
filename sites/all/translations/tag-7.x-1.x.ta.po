@@ -1,0 +1,20 @@
+# Tamil translation of Tag API (7.x-1.0)
+# Copyright (c) 2015 by the Tamil translation team
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Tag API (7.x-1.0)\n"
+"POT-Creation-Date: 2015-12-22 18:05+0000\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Language-Team: Tamil\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+
+msgid "Tags"
+msgstr "குறிச்சொற்கள்"
+msgid "Tag"
+msgstr "ஒட்டு"
+msgid "Interface"
+msgstr "இடைமுகம்"
