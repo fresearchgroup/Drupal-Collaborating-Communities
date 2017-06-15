@@ -180,12 +180,30 @@ function mltag_form_alter(& $form, & $form_state, $form_id) {
           $title             = $values['title'];
           $body              = '';
           foreach ($mltag_field_names as $field_name) {
-            foreach ($values[$field_name][$values['language']] as $info) {
-              if (isset($info['value']) && trim($info['value']) != NULL && trim($info['value']) != '') {
-                $body = $body . $info['value'];
-              }
-            }
+	           //dpm($values['body'][$values['language']]);//this was added
+              // dpm($field_name);
+   	       //   dpm($values['language']);
+            //  dpm($values[$field_name]);
+      	     // dpm($values[$field_name][$values['language']]);
+        	   //if ($field_name != 'field_tags')
+            //  if (strcmp ($field_name, "field_tags") == 0) {
+        	  //    foreach ($values[$field_name]['und'] as $info) {
+        	  //     // dpm($info['name']);
+            //       if (isset($info['value']) && trim($info['value']) != NULL && trim($info['value']) != '') {
+            //         $body = $body . $info['value'];
+            //       }
+            //     }
+            //   }
+              // elseif ($field_name != "field_tags") {
+                foreach ($values[$field_name][$values['language']] as $info) {
+          	      // dpm($info['value']);
+                    if (isset($info['value']) && trim($info['value']) != NULL && trim($info['value']) != '') {
+                      $body = $body . $info['value'];
+                    }
+                  }
+              // }
           }
+          //dpm($body);
 
           $content = check_plain($title) . ' ' . $body;
           if (trim($body) == '' || trim($body) == NULL) {
@@ -311,7 +329,7 @@ function mltag_get_selected_tags($selected_implicit_tags, $selected_learned_tags
 
 /**
  * Function to check if term exists in Vocab.
- * 
+ *
  * If yes then return tid else create & return tid.
  */
 function mltag_get_set_term_id($selected_tags, $tag_field_obj) {
@@ -370,24 +388,35 @@ function mltag_node_presave($node) {
     ->execute();*/
     $mltag_get_tag_field = db_query("SELECT DISTINCT field_name, vocab_name FROM {mltag_node_fields} WHERE node_type = :type AND field_type = 'taxonomy_term_reference'", array(':type' => $node->type));
     $mltag_tag_fields = $mltag_get_tag_field->fetchAll();
+    //dpm($mltag_tag_fields);
     $user_tags        = array();
     foreach ($mltag_tag_fields as $tag_field_obj) {
       // Execute this code block only if user has selected
       // any tags from the suggestions.
       $term_id = array();
       if (count($selected_tags) > 0) {
+	       //dpm(count($selected_tags));
+	        // dpm($selected_tags);
         $term_id = mltag_get_set_term_id($selected_tags, $tag_field_obj);
+        // dpm($term_id);
       }
 
       // Check if tag field isset i.e some some tags are
       // entered into it.
+      // dpm($node->{$tag_field_obj->field_name});
+      // dpm($node->{$tag_field_obj->field_name}[$node->language]);
+      //changed $node->language to 'und'
+      // $node->language = (string)'und';
       if (isset($node->{$tag_field_obj->field_name}) && isset($node->{$tag_field_obj->field_name}[$node->language])) {
+        // dpm("hey its in");
         // Store tid => word of user entered tags in this array.
         $user_entered_tags = array();
         foreach ($node->{$tag_field_obj->field_name}[$node->language] as $term_array) {
           $user_entered_tags[$term_array['tid']] = $term_array['name'];
           $user_tags[] = $term_array['name'];
         }
+        // dpm($user_entered_tags);
+        // dpm($user_tags);
 
         // Get Difference of the $user_entered_tags and $term_id arrays.
         $term_id = array_diff_key($term_id, $user_entered_tags);
@@ -437,6 +466,7 @@ function mltag_node_presave($node) {
     $data_content   = $content;
     $data_user_tags = & drupal_static('mltag_block_array');
     $data_user_tags = $user_tags;
+    //dpm ($user_tags);
   }
 }
 
@@ -551,7 +581,7 @@ function mltag_node_update($node) {
 
     arsort($ranked_tags);
     // $ranked_tags contains tags ranked using z - score.
-    $file = "public://mltag_learned_tags.txt";
+    $file = "/var/www/html/portal/sites/default/files/mltag_learned_tags.txt";//this was changed
     file_put_contents($file, urlencode(serialize($ranked_tags)));
   }
 }
