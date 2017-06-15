@@ -1,0 +1,24 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the suggestedterms module.
+ */
+
+/**
+ * Implementation of hook_install().
+ */
+function suggestedterms_install() {
+  // Always make sure this module runs after taxonomy does.
+  $taxonomy_weight = db_query("SELECT weight FROM {system} WHERE name = 'taxonomy'")->fetchField();
+  db_query("UPDATE {system} SET weight = :weight WHERE name = 'suggestedterms'", array(':weight' => $taxonomy_weight + 1));
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function suggestedterms_uninstall() {
+  variable_del('suggestedterms_maximum_displayed');
+  variable_del('suggestedterms_sort_order');
+  variable_del('suggestedterms_display_fieldset');
+}

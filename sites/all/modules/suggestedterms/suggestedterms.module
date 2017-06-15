@@ -1,0 +1,145 @@
+<?php
+
+/*
+ * @file
+ * Module that displays terms and uses javascript to allow click-adding to
+ * taxonomy autocomplete fields.
+ */
+
+module_load_include('inc', 'suggestedterms', 'includes/suggestedterms_config');
+module_load_include('inc', 'suggestedterms', 'includes/suggestedterms_build');
+
+/**
+ * Implementation of hook_theme().
+ */
+function suggestedterms_theme() {
+  return array(
+    'suggestedterm' => array(
+      'arguments' => array('name' => NULL),
+    ),
+  );
+}
+
+/**
+ * Build tags for each term.
+ *
+ * @ingroup themeable
+ * @param $name
+ *   The term name to theme.
+ */
+function theme_suggestedterm($variables) {
+  $name = $variables['name'];
+  $selected = $variables['selected'];
+  if (FALSE !== strpos($name, ',')) {
+    $name = "\"$name\"";
+  }
+
+  $options = array(
+    'attributes' => array(
+      'class' => array(
+        'suggestedterm',
+        // If already selected, add "remove" class.
+      ),
+      'title' => t('Add @name to or remove @name from the list of terms', array('@name' => $name)),
+    ),
+  );
+  // Return a link for each term.
+  return l($name, NULL, $options);
+}
+
+/*
+ * Implementation of hook_field_widget_WIDGET_TYPE_form_alter().
+ */
+function suggestedterms_field_widget_taxonomy_autocomplete_form_alter(&$element, &$form_state, $context) {
+  // Attach the js and css only where we need it.
+  $path = drupal_get_path('module', 'suggestedterms');
+  drupal_add_js($path . '/suggestedterms.js', array('type' => 'file', 'scope' => 'header', 'defer' => TRUE, 'weight' => 'JS_DEFAULT'));
+  drupal_add_css($path . '/suggestedterms.css', array('type' => 'module', 'media' => 'all', 'preprocess' => TRUE));
+
+  $used_tids = array();
+  foreach ($context['items'] as $item) {
+    $used_tids[] = $item['tid'];
+  }
+  $selected_terms = '';
+  $used_terms = taxonomy_term_load_multiple($used_tids);
+  foreach($used_terms as $used_term) {
+    if (!empty($selected_terms)) {
+      $selected_terms .= ', ';
+    }
+    $selected_terms .= $used_term->name;
+  }
+  $display_what = variable_get('suggestedterms_display_mode', SUGGESTEDTERMS_DISPLAY_ALL);
+  // If multiple vocabularies, loop over each.
+  foreach ($context['field']['settings']['allowed_values'] as $key => $value) {
+
+    $sort_order = variable_get('suggestedterms_sort_order', SUGGESTEDTERMS_SORT_NAME);
+     switch ($sort_order) {
+       case SUGGESTEDTERMS_SORT_POPULAR:
+         $tag_description = t('Most popular terms');
+         break;
+
+       case SUGGESTEDTERMS_SORT_RECENT:
+         $tag_description = t('Recently added');
+         break;
+
+       case SUGGESTEDTERMS_SORT_WEIGHT:
+         $tag_description = t('Terms by Weight');
+         break;
+
+       case SUGGESTEDTERMS_SORT_USED:
+         $tag_description = t('Recently Used');
+         break;
+
+       default:
+         $tag_description = t('Terms by name');
+         break;
+    }
+
+
+    // We have to get the vocab IDs from vocab names
+    $vocabulary = db_select('taxonomy_vocabulary', 'tv')
+        ->fields('tv')
+        ->condition('machine_name', $value['vocabulary'], '=')
+        ->execute()
+        ->fetchAssoc();
+    $vid = $vocabulary['vid'];
+    // Build the suggested terms and set in description tag.
+    $terms_list_markup = _suggestedterms_build_suggestions($vid, $sort_order, $display_what, explode(', ', $selected_terms));
+    // If the user has checked the "fieldset" box in settings, make a fieldset.
+    $display_fieldset = variable_get('suggestedterms_display_fieldset', SUGGESTEDTERMS_DISPLAY_FIELDSET);
+    if ($display_fieldset == TRUE ) {
+      $fieldset_variables['element'] = array(
+        '#id' => 'suggestedterms_widget_list',
+        '#children' => NULL,
+        '#theme' => 'fieldset',
+        '#title' => "$tag_description:",
+        '#collapsible' => TRUE,
+        '#collapsed' => TRUE,
+        '#attached' => array(
+          'js' => array(
+            'misc/form.js',
+            'misc/collapse.js',
+          ),
+        ),
+        '#attributes' => array(
+          'class' => array('collapsible', 'collapsed'),
+        ),
+        '#value' => $terms_list_markup,
+      );
+      $fieldset = theme_fieldset($fieldset_variables);
+      $element['#description'] .= $fieldset;
+    }
+    // Otherwise just paste the list into the description directly.
+    else {
+      $element['#description'] .= "<br />\n $tag_description: $terms_list_markup";
+    }
+  }
+}
+
+/**
+ * Implements hook_taxonomy_term_insert().
+ */
+function suggestedterms_taxonomy_term_insert($term) {
+  // When new terms are added clear the suggestedterms cache.
+  suggestedterms_cache_clear();
+}
