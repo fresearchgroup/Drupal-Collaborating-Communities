@@ -1,5 +1,5 @@
-## Welcome to the Portal For Collaborating Communities wiki!
-       (Designing the National Virtual Library Of India)
+## Welcome to the Repository For Collaborating Communities!
+
 Let's Collaborate !
 The idea of working together to achieve something great. Collaboration has always gathered people together and share ideas and contribute.
 Our system is built by integrating this idea of collaboration where people create , edit , review and publish OERs in the form of audios, videos, images, texts, manuscripts, books, and such other digital assets and together they  contribute to our Drupal 7.
