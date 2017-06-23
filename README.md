@@ -1,4 +1,4 @@
-## Welcome to the Repository For Collaborating Communities!
+## Welcome to the Repository For Collaborating Communities !
 
 Let's Collaborate !
 The idea of working together to achieve something great. Collaboration has always gathered people together and share ideas and contribute.
@@ -27,4 +27,4 @@ Create a database for drupal. For a MySql database import the sql file with the 
 `mysql -u [sql_username] -p [drupal database name] < /path/to/file/database.sql`
  
 
-**Find detailed configuration info [here]** (https://github.com/fresearchgroup/Collaborating-Communities/wiki/Install-our-system)
+**Find detailed configuration info [here](https://github.com/fresearchgroup/Collaborating-Communities/wiki/Install-our-system)**
