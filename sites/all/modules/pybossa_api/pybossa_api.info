@@ -1,0 +1,5 @@
+name = Pybossa API
+description = Module that leverages the restAPI for pybossa to retrieve tags for a content type.
+core = 7.x
+package = Pybossa
+configure = admin/config/Pybossa
