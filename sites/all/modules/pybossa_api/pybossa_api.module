@@ -1,2 +1,115 @@
 <?php
 
+/**
+ * Implements hook_help().
+ *
+ * Displays help and module information.
+ *
+ * @param path 
+ *   Which path of the site we're using to display help
+ * @param arg 
+ *   Array that holds the current path as returned from arg() function
+ */
+function pybossa_api_help($path, $arg) {
+  switch ($path) {
+    case "admin/help#pybossa_api":
+      return t("Call pybossa project api to crowdsource tagging task"); 
+      break; 
+  }
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+ function pybossa_api_form_alter (& $form, & $form_state, $form_id) {
+
+  if ($form_id == 'article_node_form') {
+    //dpm ('hey got it');
+    
+    //Add the Pybossa crowd-source option
+    $form ['pybossa_settings'] = array(
+      '#type' => 'fieldset',
+      '#title' => t("CrowdSource"),
+      '#markup' => t("CrowdSource the article for tagging"), 
+      '#collapsible' => TRUE,
+      '#collapsed'  => FALSE,
+      '#group' => 'additional_settings',
+      '#tree' => TRUE,
+      '#weight' => -3,
+    );
+
+    //Add the body checkbox
+    $form['pybossa_settings']['body'] = array(
+      '#type' => 'checkbox',
+      '#title' => t("Send body field for tagging"),
+      '#default_value' => 0,
+      '#return_value' => 1,
+    );
+
+  }
+
+ }
+
+/**
+ * Implements hook_node_presave() 
+ * Sends a http request to create a task in the pybossa instance for tagging
+ *
+ */
+function pybossa_api_node_presave ($node) {
+  dpm ('presave');
+  if (isset ($node->pybossa_settings['body'])) {
+    dpm ($node->pybossa_settings['body']);
+    if ($node->pybossa_settings['body'] == 1)
+      save_json_file ($node->title, $node->name, $node->date, $node->body[$node->language][0]['value'], $node->log);
+  }
+    
+  //dpm ($node);
+}
+
+
+
+/**
+ * Save content in JSON file
+ *
+ */
+function save_json_file ($title, $author, $date, $body, $log) {
+  dpm ('Saving to file');
+  $json_object = array(
+    'title' => $title,
+    'author' => $author,
+    'date' => $date,
+    'body' => $body,
+    'log' => $log,
+  );
+  
+
+  $json_object = json_encode ($json_object, JSON_FORCE_OBJECT);
+  
+  $json_file_name = "/var/www/html/portal/Docs/file.json";
+  $file_pointer = fopen ($json_file_name, 'w');
+  fwrite ($file_pointer, $json_object);
+  fclose ($file_pointer);
+}
+
+
+/**
+ * Implements the http request to create a task in the pybossa instance for tagging
+ *
+ */
+function send_content_for_tagging ($form, & $form_state) {
+  dpm ('Clicked');
+  dpm ($form);
+}
+
+/*
+ function pybossa_api_form_node_form_alter(& $form, & $form_state, $form_id) {
+
+  $node = $form_state->getFormObject()->getEntity();
+
+  if($node->getType() == 'article') {
+    //alter article form
+  }
+
+ }
+
+*/
