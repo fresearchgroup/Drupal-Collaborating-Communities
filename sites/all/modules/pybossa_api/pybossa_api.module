@@ -56,36 +56,33 @@ function pybossa_api_help($path, $arg) {
  *
  */
 function pybossa_api_node_presave ($node) {
-  dpm ('presave');
-  if (isset ($node->pybossa_settings['body'])) {
-    dpm ($node->pybossa_settings['body']);
+  if (isset ($node->pybossa_settings)) {
+    //dpm ($node->pybossa_settings);
     if ($node->pybossa_settings['body'] == 1)
-      save_json_file ($node->title, $node->name, $node->date, $node->body[$node->language][0]['value'], $node->log);
+      create_task ($node->title, $node->body[$node->language][0]['value'], $node->date, $node->pybossa_settings['crowdsource_question']);
   }
     
   //dpm ($node);
 }
 
 
-
 /**
  * Save content in JSON file
  *
  */
-function save_json_file ($title, $author, $date, $body, $log) {
+function save_json_file ($title, $body, $date, $crowdsource_question, $json_file_name) {
   dpm ('Saving to file');
+
   $json_object = array(
     'title' => $title,
-    'author' => $author,
+    'type' => 'text',
     'date' => $date,
     'body' => $body,
-    'log' => $log,
+    'question' => $crowdsource_question
   );
   
-
   $json_object = json_encode ($json_object, JSON_FORCE_OBJECT);
   
-  $json_file_name = "/var/www/html/portal/Docs/file.json";
   $file_pointer = fopen ($json_file_name, 'w');
   fwrite ($file_pointer, $json_object);
   fclose ($file_pointer);
@@ -93,23 +90,56 @@ function save_json_file ($title, $author, $date, $body, $log) {
 
 
 /**
- * Implements the http request to create a task in the pybossa instance for tagging
- *
- */
-function send_content_for_tagging ($form, & $form_state) {
-  dpm ('Clicked');
-  dpm ($form);
+* Create a task in pybossa
+*/
+function create_task ($title, $body, $date, $crowdsource_question) {
+  dpm ('JSON object');
+
+  $pybossa_project_id = 4856;
+  $info = array (
+    'body' => $body,
+    'title' => $title,
+    'date' => $date,
+    'question' => $crowdsource_question
+  );
+  $json_task = array(
+    'project_id' => $pybossa_project_id,
+    'info' => $info
+  );
+  
+  $json_task = json_encode ($json_task, JSON_FORCE_OBJECT);
+  
+  dpm ($json_task);
+  send_task ($json_task);
 }
 
-/*
- function pybossa_api_form_node_form_alter(& $form, & $form_state, $form_id) {
+/**
+* Send a task in pybossa
+*/
+function send_task ($json_task) {
+ 
+  // Setup cURL
+  $ch = curl_init('https://crowdcrafting.org/api/task?api_key=bd32661f-0f5e-44c6-ab47-201de7c767f1');
+  curl_setopt_array($ch, array(
+    CURLOPT_POST => TRUE,
+    CURLOPT_RETURNTRANSFER => TRUE,
+    CURLOPT_HTTPHEADER => array(
+        'Content-Type: application/json'
+    ),
+    CURLOPT_POSTFIELDS => $json_task
+  ));
 
-  $node = $form_state->getFormObject()->getEntity();
+  // Send the request
+  $response = curl_exec($ch);
 
-  if($node->getType() == 'article') {
-    //alter article form
+  // Check for errors
+  if($response === FALSE){
+    die(curl_error($ch));
   }
 
- }
+  // Decode the response
+  $responseData = json_decode($response, TRUE);
+  dpm ('response');
+  dpm ($responseData);
 
-*/
+}
