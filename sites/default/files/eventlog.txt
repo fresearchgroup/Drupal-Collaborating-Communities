@@ -2,3 +2,8 @@ type node operation view description lsm trees ref_numeric 42 created 1498218916
 type node operation view description Machine Learning ref_numeric 17 created 1498218922 uid 1 ip 127.0.0.1 path node/% 
 type node operation view description Bootstrap ref_numeric 7 created 1498218926 uid 1 ip 127.0.0.1 path node/% 
 type node operation view description RMFC ref_numeric 41 created 1498219772 uid 1 ip 127.0.0.1 path node/% 
+operation login description admin type authentication form_id user_login_block created 1498553718 uid 1 ip ::1 path node 
+type node operation view description RMFC ref_numeric 41 created 1498553755 uid 1 ip ::1 path node/% 
+type node operation view description RMFC ref_numeric 41 created 1498554374 uid 1 ip ::1 path node/% 
+type authentication operation logout description admin uid 1 created 1498554497 ip ::1 path user/logout 
+operation login description admin type authentication form_id user_login_block created 1498554506 uid 1 ip ::1 path node 
