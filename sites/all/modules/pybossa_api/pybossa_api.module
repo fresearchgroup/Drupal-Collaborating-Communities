@@ -46,6 +46,12 @@ function pybossa_api_help($path, $arg) {
       '#return_value' => 1,
     );
 
+    //Add a question field
+    $form['pybossa_settings']['crowdsource_question'] = array(
+      '#type' => 'textarea',
+      '#title' => t("Enter a question"),
+    );
+
   }
 
  }
@@ -62,6 +68,7 @@ function pybossa_api_node_presave ($node) {
       create_task ($node->title, $node->body[$node->language][0]['value'], $node->date, $node->pybossa_settings['crowdsource_question']);
   }
     
+  
   //dpm ($node);
 }
 
