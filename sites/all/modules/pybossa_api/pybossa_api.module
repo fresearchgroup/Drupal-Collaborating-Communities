@@ -78,7 +78,7 @@ function pybossa_api_node_presave ($node) {
  *
  */
 function save_json_file ($title, $body, $date, $crowdsource_question, $json_file_name) {
-  dpm ('Saving to file');
+  //dpm ('Saving to file');
 
   $json_object = array(
     'title' => $title,
@@ -100,7 +100,7 @@ function save_json_file ($title, $body, $date, $crowdsource_question, $json_file
 * Create a task in pybossa
 */
 function create_task ($title, $body, $date, $crowdsource_question) {
-  dpm ('JSON object');
+  //dpm ('JSON object');
 
   $pybossa_project_id = 4856;
   $info = array (
@@ -116,7 +116,7 @@ function create_task ($title, $body, $date, $crowdsource_question) {
   
   $json_task = json_encode ($json_task, JSON_FORCE_OBJECT);
   
-  dpm ($json_task);
+  //dpm ($json_task);
   send_task ($json_task);
 }
 
@@ -146,7 +146,7 @@ function send_task ($json_task) {
 
   // Decode the response
   $responseData = json_decode($response, TRUE);
-  dpm ('response');
-  dpm ($responseData);
+  //dpm ('response');
+  //dpm ($responseData);
 
 }
